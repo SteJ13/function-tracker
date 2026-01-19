@@ -1,0 +1,26 @@
+export const translations = {
+  en: {
+    functionCategories: 'Function Categories',
+    viewFunctions: 'View Functions',
+    notifications: 'Notifications',
+    more: 'More',
+    name: 'Name',
+    tamilName: 'Tamil Name',
+    description: 'Description',
+    save: 'Save',
+    cancel: 'Cancel',
+    deleteCategory: 'Delete Category',
+  },
+  ta: {
+    functionCategories: 'நிகழ்ச்சி வகைகள்',
+    viewFunctions: 'நிகழ்ச்சிகளை பார்க்க',
+    notifications: 'அறிவிப்புகள்',
+    more: 'மேலும்',
+    name: 'பெயர்',
+    tamilName: 'தமிழ் பெயர்',
+    description: 'விளக்கம்',
+    save: 'சேமிக்க',
+    cancel: 'ரத்து',
+    deleteCategory: 'வகையை நீக்கு',
+  },
+};
