@@ -1,0 +1,266 @@
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
+import { useForm } from 'react-hook-form';
+import Toast from 'react-native-toast-message';
+
+import { Input, Select, DatePicker, TimePicker, StatusSelector } from '@components/FormInputs';
+import {
+  createFunction,
+  getFunctionById,
+  updateFunction,
+} from '@utils/functionStorage';
+
+const STATUS_OPTIONS = [
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+export default function FunctionFormScreen({ navigation, route }) {
+  const functionId = route?.params?.functionId;
+
+  const categories = useMemo(() => {
+    if (route?.params?.categories) {
+      return route.params.categories;
+    }
+
+    return [
+      { id: '1', name: 'Marriage' },
+      { id: '2', name: 'Birthday' },
+    ];
+  }, [route?.params?.categories]);
+
+  const [loading, setLoading] = useState(!!functionId);
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isSubmitting },
+  } = useForm({
+    defaultValues: {
+      title: '',
+      categoryId: '',
+      date: '',
+      time: '',
+      location: '',
+      notes: '',
+      status: 'upcoming',
+    },
+  });
+
+  // Load existing function data when editing
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const existing = await getFunctionById(functionId);
+
+        if (!existing) {
+          Toast.show({ type: 'error', text1: 'Function not found' });
+          navigation.goBack();
+          return;
+        }
+
+        reset({
+          title: existing.title || '',
+          categoryId: existing.categoryId || '',
+          date: existing.date || '',
+          time: existing.time || '',
+          location: existing.location || '',
+          notes: existing.notes || '',
+          status: existing.status || 'upcoming',
+        });
+      } catch (error) {
+        Toast.show({ type: 'error', text1: 'Failed to load function' });
+        navigation.goBack();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (functionId) {
+      loadData();
+    }
+  }, [functionId, navigation, reset]);
+
+  const onSubmit = useCallback(
+    async values => {
+      try {
+        if (functionId) {
+          await updateFunction(functionId, {
+            title: values.title.trim(),
+            categoryId: values.categoryId,
+            date: values.date,
+            time: values.time,
+            location: values.location?.trim() || '',
+            notes: values.notes?.trim() || '',
+            status: values.status,
+          });
+
+          Toast.show({ type: 'success', text1: 'Function updated' });
+        } else {
+          await createFunction({
+            title: values.title.trim(),
+            categoryId: values.categoryId,
+            date: values.date,
+            time: values.time,
+            location: values.location?.trim() || '',
+            notes: values.notes?.trim() || '',
+            status: values.status,
+          });
+
+          Toast.show({ type: 'success', text1: 'Function added' });
+        }
+
+        navigation.goBack();
+      } catch (error) {
+        Toast.show({
+          type: 'error',
+          text1: functionId ? 'Failed to update function' : 'Failed to save function',
+        });
+      }
+    },
+    [functionId, navigation]
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color="#1976D2" />
+        <Text style={styles.loaderText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Input
+        name="title"
+        label="Title"
+        control={control}
+        required
+        rules={{ required: 'Title is required' }}
+        placeholder="Enter title"
+      />
+
+      <Select
+        name="categoryId"
+        label="Category"
+        control={control}
+        options={categories.map(cat => ({ label: cat.name, value: cat.id }))}
+        rules={{ required: 'Category is required' }}
+        placeholder="Select category"
+      />
+
+      <DatePicker
+        name="date"
+        label="Date"
+        control={control}
+        rules={{ required: 'Date is required' }}
+        placeholder="YYYY-MM-DD"
+      />
+
+      <TimePicker
+        name="time"
+        label="Time"
+        control={control}
+        rules={{ required: 'Time is required' }}
+        placeholder="HH:mm"
+      />
+
+      <Input
+        name="location"
+        label="Location"
+        control={control}
+        placeholder="Optional"
+        voice={false}
+      />
+
+      <Input
+        name="notes"
+        label="Notes"
+        control={control}
+        placeholder="Notes (voice supported)"
+      />
+
+      <StatusSelector
+        name="status"
+        label="Status"
+        control={control}
+        options={STATUS_OPTIONS}
+      />
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.button, styles.cancel]}
+          onPress={() => navigation.goBack()}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.btnText}>Cancel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.save]}
+          onPress={handleSubmit(onSubmit)}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.btnText}>{isSubmitting ? 'Saving...' : 'Save'}</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F6F8FA',
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 24,
+  },
+  button: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  cancel: {
+    backgroundColor: '#9E9E9E',
+  },
+  save: {
+    backgroundColor: '#1976D2',
+  },
+  btnText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  loader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F6F8FA',
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+});

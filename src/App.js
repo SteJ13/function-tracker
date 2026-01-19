@@ -29,6 +29,9 @@ import {
 
 import FunctionCategoriesScreen from '@screens/FunctionCategories';
 import FunctionCategoryForm from '@screens/FunctionCategories/Form';
+import FunctionListScreen from '@screens/Functions';
+import FunctionFormScreen from '@screens/Functions/FunctionFormScreen';
+import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +54,21 @@ function AppNavigator() {
               title: 'Function Tracker',
               headerRight: () => <HeaderUserMenu />,
             }}
+          />
+          <Stack.Screen
+            name="Functions"
+            component={FunctionListScreen}
+            options={{ title: 'Functions' }}
+          />
+          <Stack.Screen
+            name="FunctionForm"
+            component={FunctionFormScreen}
+            options={{ title: 'Function' }}
+          />
+          <Stack.Screen
+            name="FunctionDetail"
+            component={FunctionDetailScreen}
+            options={{ title: 'Function Details' }}
           />
           <Stack.Screen
             name="Notifications"
