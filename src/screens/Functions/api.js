@@ -36,14 +36,61 @@ export async function getFunctions({
   };
 }
 
+export async function getFunctionById(id) {
+  const { data, error } = await supabase
+    .from('functions')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function addFunction(functionData) {
-  await supabase.from('functions').insert(functionData);
+  const { data, error } = await supabase
+    .from('functions')
+    .insert(functionData)
+    .select()
+    .single();
+
+  if (error) {
+    console.log('error: ', error);
+    throw error;
+  }
+
+  return data;
 }
 
 export async function updateFunction(id, updates) {
-  await supabase.from('functions').update(updates).eq('id', id);
+  const { data, error } = await supabase
+    .from('functions')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.log('error: ', error);
+    throw error;
+  }
+
+  return data;
 }
 
 export async function deleteFunction(id) {
-  await supabase.from('functions').delete().eq('id', id);
+  const { error } = await supabase
+    .from('functions')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.log('error: ', error);
+    throw error;
+  }
+
+  return true;
 }

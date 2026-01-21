@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { getFunctionById, deleteFunction, getAllFunctions } from '@utils/functionStorage';
+import { getFunctionById, deleteFunction } from './api';
 
 export default function FunctionDetailScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
@@ -31,16 +31,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
         }
         setFunctionData(data);
 
-        // Load all functions to extract category mapping
-        const allFunctions = await getAllFunctions();
-        const catMap = {};
-        allFunctions.forEach(fn => {
-          if (fn.categoryId && !catMap[fn.categoryId]) {
-            catMap[fn.categoryId] = fn.categoryId; // Will be replaced with name if available
-          }
-        });
-
-        // Hardcoded category mapping (should be replaced with proper category storage)
+        // TODO: Fetch categories from API and build category map
         const categories = {
           '1': 'Marriage',
           '2': 'Birthday',

@@ -12,10 +12,11 @@ import Toast from 'react-native-toast-message';
 
 import { Input, Select, DatePicker, TimePicker, StatusSelector } from '@components/FormInputs';
 import {
-  createFunction,
   getFunctionById,
+  addFunction,
   updateFunction,
-} from '@utils/functionStorage';
+} from './api';
+import { getCategories } from '@screens/FunctionCategories/api';
 
 const STATUS_OPTIONS = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -25,17 +26,28 @@ const STATUS_OPTIONS = [
 
 export default function FunctionFormScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  const categories = useMemo(() => {
-    if (route?.params?.categories) {
-      return route.params.categories;
-    }
+  // Fetch categories on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const result = await getCategories({ page: 1, limit: 100 });
+        setCategories(result.data || []);
+      } catch (error) {
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to load categories',
+          text2: error?.message,
+        });
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
 
-    return [
-      { id: '1', name: 'Marriage' },
-      { id: '2', name: 'Birthday' },
-    ];
-  }, [route?.params?.categories]);
+    loadCategories();
+  }, []);
 
   const [loading, setLoading] = useState(!!functionId);
 
@@ -70,8 +82,8 @@ export default function FunctionFormScreen({ navigation, route }) {
 
         reset({
           title: existing.title || '',
-          categoryId: existing.categoryId || '',
-          date: existing.date || '',
+          categoryId: existing.category_id || '',
+          date: existing.function_date || '',
           time: existing.time || '',
           location: existing.location || '',
           notes: existing.notes || '',
@@ -96,9 +108,9 @@ export default function FunctionFormScreen({ navigation, route }) {
         if (functionId) {
           await updateFunction(functionId, {
             title: values.title.trim(),
-            categoryId: values.categoryId,
-            date: values.date,
-            time: values.time,
+            category_id: values.categoryId,
+            function_date: values.date,
+            function_time: values.time,
             location: values.location?.trim() || '',
             notes: values.notes?.trim() || '',
             status: values.status,
@@ -106,11 +118,11 @@ export default function FunctionFormScreen({ navigation, route }) {
 
           Toast.show({ type: 'success', text1: 'Function updated' });
         } else {
-          await createFunction({
+          await addFunction({
             title: values.title.trim(),
-            categoryId: values.categoryId,
-            date: values.date,
-            time: values.time,
+            category_id: values.categoryId,
+            function_date: values.date,
+            function_time: values.time,
             location: values.location?.trim() || '',
             notes: values.notes?.trim() || '',
             status: values.status,
@@ -130,7 +142,7 @@ export default function FunctionFormScreen({ navigation, route }) {
     [functionId, navigation]
   );
 
-  if (loading) {
+  if (loading || categoriesLoading) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color="#1976D2" />
@@ -204,7 +216,7 @@ export default function FunctionFormScreen({ navigation, route }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.button, styles.cancel]}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.pop()}
           disabled={isSubmitting}
         >
           <Text style={styles.btnText}>Cancel</Text>

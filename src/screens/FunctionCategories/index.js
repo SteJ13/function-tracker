@@ -6,23 +6,23 @@ import {
   StyleSheet,
   Alert
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import PaginatedList from '@components/PaginatedList';
 import { getCategories, deleteCategory } from './api';
 
 export default function FunctionCategoriesScreen({ navigation,route  }) {
   const [categories, setCategories] = useState([]);
+  const [refreshKey, setRefreshKey] = useState('categories');
   const PAGE_SIZE = 10;
-  const listKey = route?.params?.refreshKey
-    ? `categories-${route.params.refreshKey}`
-    : 'categories';
 
-  useEffect(() => {
-    if (route?.params?.refreshKey) {
+  // Refresh list when screen is focused (returning from form or detail)
+  useFocusEffect(
+    useCallback(() => {
       setCategories([]);
-      navigation.setParams({ refreshKey: null });
-    }
-  }, [route?.params?.refreshKey, navigation]);
+      setRefreshKey(`categories-${Date.now()}`);
+    }, [])
+  );
 
   const fetchData = useCallback(async ({ page, limit }) => {
     const result = await getCategories({ page, limit });
@@ -44,10 +44,6 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
     });
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    setCategories([]);
-  }, []);
-
   const handleDelete = item => {
     Alert.alert(
       'Delete Category',
@@ -62,8 +58,9 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteCategory(item.id);
-              setCategories(prev => prev.filter(cat => cat.id !== item.id));
+              const categoryId = item.id;
+              await deleteCategory(categoryId);
+              setCategories(prev => prev.filter(cat => cat.id !== categoryId));
 
               Toast.show({
                 type: 'success',
@@ -116,7 +113,7 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
   return (
     <View style={styles.container}>
       <PaginatedList
-        key={listKey}
+        key={refreshKey}
         data={categories}
         renderItem={renderItem}
         keyExtractor={item => item.id}

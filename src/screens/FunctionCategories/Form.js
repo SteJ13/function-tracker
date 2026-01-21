@@ -28,21 +28,22 @@ export default function FunctionCategoryForm({ navigation, route }) {
 
   const onSubmit = async data => {
     try {
+      const categoryId = editingCategory?.id;
+      
       if (editingCategory) {
-        await updateCategory(editingCategory.id, data);
+        await updateCategory(categoryId, data);
       } else {
         await addCategory(data);
       }
 
-      navigation.navigate('FunctionCategories', {
-        refreshKey: Date.now(),
-      });
+      navigation.goBack();
 
       Toast.show({
         type: 'success',
         text1: editingCategory ? 'Category updated' : 'Category added',
       });
     } catch (e) {
+      console.log('e ====== : ', e);
       Toast.show({
         type: 'error',
         text1: 'Something went wrong',
@@ -81,7 +82,7 @@ export default function FunctionCategoryForm({ navigation, route }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.button, styles.cancel]}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.pop()}
           disabled={isSubmitting}
         >
           <Text style={styles.btnText}>Cancel</Text>

@@ -11,11 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
-import {
-  getFunctionsPaginated,
-  deleteFunction,
-} from '@utils/functionStorage';
-import { getFunctions } from './api';
+import { getFunctions, deleteFunction } from './api';
 
 const PAGE_SIZE = 10;
 
@@ -29,11 +25,13 @@ const FILTERS = [
 export default function FunctionListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [refreshKey, setRefreshKey] = useState('functions');
 
   // Refresh list when screen is focused (returning from form or detail)
   useFocusEffect(
     useCallback(() => {
       setData([]);
+      setRefreshKey(`functions-${Date.now()}`);
     }, [])
   );
 
@@ -46,14 +44,13 @@ export default function FunctionListScreen({ navigation, route }) {
       limit,
       status: filterStatus,
     });
-      console.log('response: ', response);
 
     return {
       data: response.data,
       meta: {
-        page: response.page,
-        total: response.total,
-        hasMore: response.hasMore,
+        page: response.meta.page,
+        total: response.meta.total,
+        hasMore: response.meta.hasMore,
       },
     };
   }, [activeFilter]);
@@ -96,21 +93,23 @@ export default function FunctionListScreen({ navigation, route }) {
             text: 'Delete',
             style: 'destructive',
             onPress: async () => {
-              const success = await deleteFunction(item.id);
+              try {
+                const functionId = item.id;
+                await deleteFunction(functionId);
 
-              if (success) {
                 setData(prevData =>
-                  prevData.filter(f => f.id !== item.id)
+                  prevData.filter(f => f.id !== functionId)
                 );
 
                 Toast.show({
                   type: 'success',
                   text1: 'Function deleted',
                 });
-              } else {
+              } catch (error) {
                 Toast.show({
                   type: 'error',
                   text1: 'Failed to delete function',
+                  text2: error?.message,
                 });
               }
             },
@@ -158,7 +157,7 @@ export default function FunctionListScreen({ navigation, route }) {
 
         <View style={styles.cardBody}>
           <Text style={styles.date}>
-            📅 {item.date} at {item.time}
+            📅 {item.function_date} at {item.time}
           </Text>
           {item.location && (
             <Text style={styles.location} numberOfLines={1}>
@@ -229,6 +228,7 @@ export default function FunctionListScreen({ navigation, route }) {
       </View>
 
       <PaginatedList
+        key={refreshKey}
         data={data}
         renderItem={renderItem}
         keyExtractor={item => item.id}
