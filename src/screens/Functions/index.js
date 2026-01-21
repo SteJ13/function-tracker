@@ -15,6 +15,7 @@ import {
   getFunctionsPaginated,
   deleteFunction,
 } from '@utils/functionStorage';
+import { getFunctions } from './api';
 
 const PAGE_SIZE = 10;
 
@@ -40,11 +41,12 @@ export default function FunctionListScreen({ navigation, route }) {
   const fetchData = useCallback(async ({ page, limit }) => {
     const filterStatus = activeFilter === 'all' ? null : activeFilter;
 
-    const response = await getFunctionsPaginated({
+    const response = await getFunctions({
       page,
       limit,
       status: filterStatus,
     });
+      console.log('response: ', response);
 
     return {
       data: response.data,

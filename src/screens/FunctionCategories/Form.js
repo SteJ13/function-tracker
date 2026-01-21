@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 
 import Input from '@components/FormInputs/Input';
 import { useLanguage } from '@context/LanguageContext';
+import { addCategory, updateCategory } from './api';
 
 export default function FunctionCategoryForm({ navigation, route }) {
 
@@ -27,17 +28,14 @@ export default function FunctionCategoryForm({ navigation, route }) {
 
   const onSubmit = async data => {
     try {
-      // Fake API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const categoryData = {
-        id: editingCategory?.id || Date.now().toString(),
-        ...data,
-      };
+      if (editingCategory) {
+        await updateCategory(editingCategory.id, data);
+      } else {
+        await addCategory(data);
+      }
 
       navigation.navigate('FunctionCategories', {
-        category: categoryData,
-        isEdit: !!editingCategory,
+        refreshKey: Date.now(),
       });
 
       Toast.show({

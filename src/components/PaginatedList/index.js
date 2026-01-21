@@ -6,7 +6,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 
 /**
  * Reusable paginated list component with infinite scroll
@@ -19,7 +21,7 @@ import {
  * @param {Function} onDataLoaded - Called with new items: (newItems, meta) => void
  * @param {Function} onError - Called on error: (error, page) => void
  * @param {number} pageSize - Items per page (default: 10)
- * @param {Function} onRefresh - Optional pull-to-refresh callback
+ * @param {Function} onRefresh - Optional callback after refresh completes
  * @param {React.Component} emptyComponent - Component to show when data is empty
  * @param {Object} contentContainerStyle - Additional container styles
  * @param {Object} style - FlatList style
@@ -42,32 +44,66 @@ export default function PaginatedList({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(null);
+  const [isOffline, setIsOffline] = useState(false);
   const isLoadingRef = useRef(false);
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const offline = !state.isConnected;
+      setIsOffline(offline);
+
+      // If coming back online and there's an error, attempt retry
+      if (!offline && error) {
+        setError(null);
+      }
+    });
+
+    return unsubscribe;
+  }, [error]);
 
   // Load initial data on mount
   useEffect(() => {
     const loadInitial = async () => {
+      // Skip if offline
+      if (isOffline) {
+        setError('No internet connection');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
         const result = await fetchData({ page: 1, limit: pageSize });
 
         onDataLoaded(result.data, result.meta);
         setCurrentPage(result.meta.page);
         setHasMore(result.meta.hasMore);
-      } catch (error) {
-        onError?.(error, 1);
+      } catch (err) {
+        const errorMsg = err?.message || 'Failed to load data';
+        setError(errorMsg);
+        onError?.(err, 1);
       } finally {
         setLoading(false);
       }
     };
 
     loadInitial();
-  }, [pageSize, fetchData, onDataLoaded, onError]);
+  }, [pageSize, fetchData, onDataLoaded, onError, isOffline]);
 
   // Handle refresh (pull-to-refresh)
   const handleRefresh = useCallback(async () => {
+    // Skip if offline
+    if (isOffline) {
+      setError('No internet connection');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       const result = await fetchData({ page: 1, limit: pageSize });
 
       onDataLoaded(result.data, result.meta);
@@ -75,16 +111,19 @@ export default function PaginatedList({
       setHasMore(result.meta.hasMore);
 
       onRefresh?.();
-    } catch (error) {
-      onError?.(error, 1);
+    } catch (err) {
+      const errorMsg = err?.message || 'Failed to load data';
+      setError(errorMsg);
+      onError?.(err, 1);
     } finally {
       setLoading(false);
     }
-  }, [pageSize, fetchData, onDataLoaded, onError, onRefresh]);
+  }, [pageSize, fetchData, onDataLoaded, onError, onRefresh, isOffline]);
 
   // Handle end reached with debouncing
   const handleEndReached = useCallback(() => {
-    if (!hasMore || loadingMore || loading || isLoadingRef.current) {
+    // Do not load more if: offline, error, loadingMore, loading, no more data, or already loading
+    if (isOffline || error || !hasMore || loadingMore || loading || isLoadingRef.current) {
       return;
     }
 
@@ -100,15 +139,17 @@ export default function PaginatedList({
           setCurrentPage(result.meta.page);
           setHasMore(result.meta.hasMore);
         })
-        .catch(error => {
-          onError?.(error, nextPage);
+        .catch(err => {
+          const errorMsg = err?.message || 'Failed to load more';
+          setError(errorMsg);
+          onError?.(err, nextPage);
         })
         .finally(() => {
           setLoadingMore(false);
           isLoadingRef.current = false;
         });
     }
-  }, [hasMore, loadingMore, loading, currentPage, pageSize, fetchData, onDataLoaded, onError]);
+  }, [hasMore, loadingMore, loading, currentPage, pageSize, fetchData, onDataLoaded, onError, isOffline, error]);
 
   // Footer component: shows loading indicator or end message
   const renderFooter = useCallback(() => {
@@ -153,15 +194,48 @@ export default function PaginatedList({
     );
   }, [loading, EmptyComponent]);
 
-  // Refresh control (optional)
-  const refreshControl = onRefresh ? (
+  // Error component with retry button
+  const renderError = useCallback(() => {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={handleRefresh}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [error, handleRefresh]);
+
+  // Offline component
+  const renderOffline = useCallback(() => {
+    return (
+      <View style={styles.offlineContainer}>
+        <Text style={styles.offlineIcon}>📡</Text>
+        <Text style={styles.offlineText}>No Internet Connection</Text>
+        <Text style={styles.offlineSubtext}>Please check your connection and try again</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={handleRefresh}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [handleRefresh]);
+
+  // Refresh control
+  const refreshControl = (
     <RefreshControl
-      refreshing={loading && data.length > 0} // Only show spinner if data exists
-      onRefresh={onRefresh}
-      colors={['#1976D2']} // Android
-      tintColor="#1976D2" // iOS
+      refreshing={loading && data.length > 0}
+      onRefresh={handleRefresh}
+      colors={['#1976D2']}
+      tintColor="#1976D2"
     />
-  ) : undefined;
+  );
 
   // Show full-screen loader during initial load
   if (loading && data.length === 0) {
@@ -171,6 +245,16 @@ export default function PaginatedList({
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
+  }
+
+  // Show offline state if no data yet
+  if (isOffline && data.length === 0) {
+    return renderOffline();
+  }
+
+  // Show error state if no data yet
+  if (error && data.length === 0) {
+    return renderError();
   }
 
   return (
@@ -241,5 +325,58 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F6F8FA',
+    paddingHorizontal: 20,
+  },
+  errorIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#C62828',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  offlineContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F6F8FA',
+    paddingHorizontal: 20,
+  },
+  offlineIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  offlineText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF9800',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  offlineSubtext: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#1976D2',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

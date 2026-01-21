@@ -105,3 +105,7 @@ To learn more about React Native, take a look at the following resources:
 npx react-native start --reset-cache
 
 git push https://SteJ13@github.com/SteJ13/function-tracker.git
+
+Supabase DB Psql PWD: 9p/uc9Qkp$b-BV!
+Supabase query URL: https://dyfripwdacygcyddkyza.supabase.co
+Supabase Publishable Key: sb_publishable_tVqRzJX6yLLxavXudRUXQg_KELXugsG

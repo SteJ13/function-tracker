@@ -1,73 +1,86 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   Alert
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import PaginatedList from '@components/PaginatedList';
+import { getCategories, deleteCategory } from './api';
 
 export default function FunctionCategoriesScreen({ navigation,route  }) {
-  const [categories, setCategories] = useState([
-    {
-      id: '1',
-      name: 'Marriage',
-      tamilName: 'திருமணம்',
-      description: 'Marriage related functions',
-    },
-    {
-      id: '2',
-      name: 'Birthday',
-      tamilName: 'பிறந்த நாள்',
-      description: 'Birthday celebrations',
-    },
-  ]);
+  const [categories, setCategories] = useState([]);
+  const PAGE_SIZE = 10;
+  const listKey = route?.params?.refreshKey
+    ? `categories-${route.params.refreshKey}`
+    : 'categories';
 
   useEffect(() => {
-  if (route?.params?.category) {
-    const { category, isEdit } = route.params;
+    if (route?.params?.refreshKey) {
+      setCategories([]);
+      navigation.setParams({ refreshKey: null });
+    }
+  }, [route?.params?.refreshKey, navigation]);
 
-    setCategories(prev => {
-      if (isEdit) {
-        return prev.map(item =>
-          item.id === category.id ? category : item
-        );
-      }
-      return [...prev, category];
+  const fetchData = useCallback(async ({ page, limit }) => {
+    const result = await getCategories({ page, limit });
+    return {
+      data: result.data,
+      meta: result.meta,
+    };
+  }, []);
+
+  const handleDataLoaded = useCallback((newItems, meta) => {
+    setCategories(prev => (meta.page === 1 ? newItems : [...prev, ...newItems]));
+  }, []);
+
+  const handleError = useCallback((error, page) => {
+    Toast.show({
+      type: 'error',
+      text1: page === 1 ? 'Unable to load categories' : 'Failed to load more',
+      text2: error?.message,
     });
+  }, []);
 
-    navigation.setParams({ category: null, isEdit: null });
-  }
-}, [route?.params]);
+  const handleRefresh = useCallback(() => {
+    setCategories([]);
+  }, []);
 
- const handleDelete = item => {
-  Alert.alert(
-    'Delete Category',
-    `Are you sure you want to delete "${item.name}"?`,
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          setCategories(prev =>
-            prev.filter(cat => cat.id !== item.id)
-          );
-
-          Toast.show({
-            type: 'success',
-            text1: 'Category deleted',
-          });
+  const handleDelete = item => {
+    Alert.alert(
+      'Delete Category',
+      `Are you sure you want to delete "${item.name}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]
-  );
-};
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCategory(item.id);
+              setCategories(prev => prev.filter(cat => cat.id !== item.id));
+
+              Toast.show({
+                type: 'success',
+                text1: 'Category deleted',
+              });
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'Delete failed',
+                text2: error.message,
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
 
 
   const renderItem = ({ item }) => (
@@ -81,10 +94,10 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionBtn, styles.edit]}
-          onPress={() => 
+          onPress={() =>
             navigation.navigate('FunctionCategoryForm', {
-    category: item,
-  })
+              category: item,
+            })
           }
         >
           <Text style={styles.actionText}>Edit</Text>
@@ -102,10 +115,15 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <PaginatedList
+        key={listKey}
         data={categories}
-        keyExtractor={item => item.id}
         renderItem={renderItem}
+        keyExtractor={item => item.id}
+        fetchData={fetchData}
+        onDataLoaded={handleDataLoaded}
+        onError={handleError}
+        pageSize={PAGE_SIZE}
         contentContainerStyle={{ paddingBottom: 80 }}
       />
 
