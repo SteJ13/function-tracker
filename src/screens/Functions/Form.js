@@ -10,7 +10,7 @@ import {
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 
-import { Input, Select, DatePicker, TimePicker, StatusSelector } from '@components/FormInputs';
+import { Input, Select, DatePicker, TimePicker, StatusSelector, RHFLocationInput } from '@components/FormInputs';
 import {
   getFunctionById,
   addFunction,
@@ -62,7 +62,7 @@ export default function FunctionFormScreen({ navigation, route }) {
       categoryId: '',
       date: '',
       time: '',
-      location: '',
+      location_id: null,
       notes: '',
       status: 'upcoming',
     },
@@ -84,8 +84,8 @@ export default function FunctionFormScreen({ navigation, route }) {
           title: existing.title || '',
           categoryId: existing.category_id || '',
           date: existing.function_date || '',
-          time: existing.time || '',
-          location: existing.location || '',
+          time: existing.function_time || existing.time || '',
+          location_id: existing.location?.id || null,
           notes: existing.notes || '',
           status: existing.status || 'upcoming',
         });
@@ -111,7 +111,7 @@ export default function FunctionFormScreen({ navigation, route }) {
             category_id: values.categoryId,
             function_date: values.date,
             function_time: values.time,
-            location: values.location?.trim() || '',
+            location_id: values.location_id || null,
             notes: values.notes?.trim() || '',
             status: values.status,
           });
@@ -123,7 +123,7 @@ export default function FunctionFormScreen({ navigation, route }) {
             category_id: values.categoryId,
             function_date: values.date,
             function_time: values.time,
-            location: values.location?.trim() || '',
+            location_id: values.location_id || null,
             notes: values.notes?.trim() || '',
             status: values.status,
           });
@@ -191,12 +191,11 @@ export default function FunctionFormScreen({ navigation, route }) {
         placeholder="HH:mm"
       />
 
-      <Input
-        name="location"
+      <RHFLocationInput
+        name="location_id"
         label="Location"
         control={control}
-        placeholder="Optional"
-        voice={false}
+        placeholder="Search or add location"
       />
 
       <Input

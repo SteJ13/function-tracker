@@ -1,23 +1,24 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { AuthContext } from '@context/AuthContext';
+import { useAuth } from '@context/AuthContext';
 import { useLanguage } from '@context/LanguageContext';
 
 export default function HeaderUserMenu() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, signOut } = useAuth();
   const { language, toggleLanguage } = useLanguage();
 
   const [visible, setVisible] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
     setVisible(false);
     // toast is handled in logout in AuthContext
   };
 
   if (!user) return null;
 
-  const firstLetter = user.username.charAt(0).toUpperCase();
+  const displayName = user.email || user.user_metadata?.name || 'User';
+  const firstLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <>
@@ -33,7 +34,7 @@ export default function HeaderUserMenu() {
       >
         <TouchableOpacity style={styles.overlay} onPress={() => setVisible(false)}>
           <View style={styles.menu}>
-            <Text style={styles.username}>{user.username}</Text>
+            <Text style={styles.username}>{displayName}</Text>
             <TouchableOpacity onPress={toggleLanguage} style={{ marginBottom: 10 }}>
   <Text style={{ fontWeight: 'bold' }}>
     {language === 'en' ? 'தமிழ்' : 'English'}

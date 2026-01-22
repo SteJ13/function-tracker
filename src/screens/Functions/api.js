@@ -12,7 +12,7 @@ export async function getFunctions({
 
   let query = supabase
     .from('functions')
-    .select('*', { count: 'exact' })
+    .select('*, locations(id, name)', { count: 'exact' })
     .order('function_date', { ascending: true })
     .range(from, to);
 
@@ -26,8 +26,15 @@ export async function getFunctions({
     throw error;
   }
 
+  // Transform location_id to location object
+  const transformedData = data?.map(item => ({
+    ...item,
+    location: item.locations || null,
+    locations: undefined,
+  })) || [];
+
   return {
-    data,
+    data: transformedData,
     meta: {
       page,
       total: count,
@@ -39,7 +46,7 @@ export async function getFunctions({
 export async function getFunctionById(id) {
   const { data, error } = await supabase
     .from('functions')
-    .select('*')
+    .select('*, locations(id, name)')
     .eq('id', id)
     .single();
 
@@ -47,14 +54,19 @@ export async function getFunctionById(id) {
     throw error;
   }
 
-  return data;
+  // Transform location_id to location object
+  return {
+    ...data,
+    location: data.locations || null,
+    locations: undefined,
+  };
 }
 
 export async function addFunction(functionData) {
   const { data, error } = await supabase
     .from('functions')
     .insert(functionData)
-    .select()
+    .select('*, locations(id, name)')
     .single();
 
   if (error) {
@@ -62,7 +74,12 @@ export async function addFunction(functionData) {
     throw error;
   }
 
-  return data;
+  // Transform location_id to location object
+  return {
+    ...data,
+    location: data.locations || null,
+    locations: undefined,
+  };
 }
 
 export async function updateFunction(id, updates) {
@@ -70,7 +87,7 @@ export async function updateFunction(id, updates) {
     .from('functions')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select('*, locations(id, name)')
     .single();
 
   if (error) {
@@ -78,7 +95,12 @@ export async function updateFunction(id, updates) {
     throw error;
   }
 
-  return data;
+  // Transform location_id to location object
+  return {
+    ...data,
+    location: data.locations || null,
+    locations: undefined,
+  };
 }
 
 export async function deleteFunction(id) {
@@ -93,4 +115,52 @@ export async function deleteFunction(id) {
   }
 
   return true;
+}
+
+export async function getFunctionCounts() {
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const { count: total, error: totalError } = await supabase
+      .from('functions')
+      .select('*', { count: 'exact', head: true });
+
+    if (totalError) throw totalError;
+
+    const { count: upcoming, error: upcomingError } = await supabase
+      .from('functions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'upcoming');
+
+    if (upcomingError) throw upcomingError;
+
+    const { count: completed, error: completedError } = await supabase
+      .from('functions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'completed');
+
+    if (completedError) throw completedError;
+
+    const { count: todayCount, error: todayError } = await supabase
+      .from('functions')
+      .select('*', { count: 'exact', head: true })
+      .eq('function_date', today);
+
+    if (todayError) throw todayError;
+
+    return {
+      total: total || 0,
+      upcoming: upcoming || 0,
+      completed: completed || 0,
+      today: todayCount || 0,
+    };
+  } catch (error) {
+    console.error('Error fetching function counts:', error);
+    return {
+      total: 0,
+      upcoming: 0,
+      completed: 0,
+      today: 0,
+    };
+  }
 }

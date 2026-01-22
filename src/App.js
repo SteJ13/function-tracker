@@ -7,7 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from '@screens/HomeScreen';
 import { LanguageProvider } from '@context/LanguageContext';
 
-import LoginScreen from '@screens/LoginScreen';
+import LoginScreen from '@screens/Auth/login';
+import SignupScreen from '@screens/Auth/signup';
 import { AuthProvider, AuthContext } from '@context/AuthContext';
 import AppLoader from '@components/AppLoader';
 import HeaderUserMenu from '@components/HeaderUserMenu';
@@ -30,7 +31,7 @@ import {
 import FunctionCategoriesScreen from '@screens/FunctionCategories';
 import FunctionCategoryForm from '@screens/FunctionCategories/Form';
 import FunctionListScreen from '@screens/Functions';
-import FunctionFormScreen from '@screens/Functions/FunctionFormScreen';
+import FunctionFormScreen from '@screens/Functions/Form';
 import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
 
 const Stack = createNativeStackNavigator();
@@ -93,11 +94,18 @@ function AppNavigator() {
 
         </>
       ) : (
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
+        <>
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Signup"
+            component={SignupScreen}
+            options={{ headerShown: false }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );
@@ -148,3 +156,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

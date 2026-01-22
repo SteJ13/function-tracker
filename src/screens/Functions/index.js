@@ -12,6 +12,7 @@ import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
 import { getFunctions, deleteFunction } from './api';
+import { formatDisplayDate, formatDisplayTime } from '@utils';
 
 const PAGE_SIZE = 10;
 
@@ -138,51 +139,59 @@ export default function FunctionListScreen({ navigation, route }) {
 
   // Render list item
   const renderItem = useCallback(
-    ({ item }) => (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => handlePress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={[styles.badge, styles[`badge_${item.status}`]]}>
-            <Text style={styles.badgeText}>
-              {item.status}
+    ({ item }) => {
+      const displayDate = formatDisplayDate(item.function_date);
+      const displayTime = formatDisplayTime(
+        item.function_date,
+        item.function_time || item.time
+      );
+
+      return (
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => handlePress(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
             </Text>
+            <View style={[styles.badge, styles[`badge_${item.status}`]]}>
+              <Text style={styles.badgeText}>
+                {item.status}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.cardBody}>
-          <Text style={styles.date}>
-            📅 {item.function_date} at {item.time}
-          </Text>
-          {item.location && (
-            <Text style={styles.location} numberOfLines={1}>
-              📍 {item.location}
+          <View style={styles.cardBody}>
+            <Text style={styles.date}>
+              📅 {displayDate}{displayTime ? ` at ${displayTime}` : ''}
             </Text>
-          )}
-        </View>
+            {item.location?.name && (
+              <Text style={styles.location} numberOfLines={1}>
+                📍 {item.location.name}
+              </Text>
+            )}
+          </View>
 
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.edit]}
-            onPress={() => handleEdit(item)}
-          >
-            <Text style={styles.actionText}>Edit</Text>
-          </TouchableOpacity>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.edit]}
+              onPress={() => handleEdit(item)}
+            >
+              <Text style={styles.actionText}>Edit</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.delete]}
-            onPress={() => handleDelete(item)}
-          >
-            <Text style={styles.actionText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    ),
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.delete]}
+              onPress={() => handleDelete(item)}
+            >
+              <Text style={styles.actionText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      );
+    },
     [handlePress, handleEdit, handleDelete]
   );
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '@context/LanguageContext';
-import { translations } from '@utils/i18n';
-import { getAllFunctions } from '@utils/functionStorage';
+import { getFunctionCounts } from '@screens/Functions/api';
+import { useAuth } from '@context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const PADDING = 16;
@@ -19,6 +19,8 @@ const GAP = 12;
 const CARD_SIZE = (width - PADDING * 2 - GAP * 2) / 3;
 
 export default function HomeScreen({ navigation }) {
+const { user } = useAuth();
+console.log(user);
 
   const { translations } = useLanguage();
   const [stats, setStats] = useState({
@@ -37,30 +39,8 @@ export default function HomeScreen({ navigation }) {
 
   const loadStatistics = async () => {
     try {
-      const allFunctions = await getAllFunctions();
-
-      if (!allFunctions || allFunctions.length === 0) {
-        setStats({
-          total: 0,
-          upcoming: 0,
-          today: 0,
-          completed: 0,
-        });
-        return;
-      }
-
-      const today = new Date().toISOString().split('T')[0];
-
-      const upcoming = allFunctions.filter(f => f.status === 'upcoming').length;
-      const completed = allFunctions.filter(f => f.status === 'completed').length;
-      const todayFunctions = allFunctions.filter(f => f.date === today).length;
-
-      setStats({
-        total: allFunctions.length,
-        upcoming,
-        today: todayFunctions,
-        completed,
-      });
+      const counts = await getFunctionCounts();
+      setStats(counts);
     } catch (error) {
       console.error('Failed to load statistics:', error);
       setStats({
