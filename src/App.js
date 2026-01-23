@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LanguageProvider } from '@context/LanguageContext';
 import { AuthProvider } from '@context/AuthContext';
+import { NetworkProvider } from '@context/NetworkContext';
 import {
   navigationRef,
   flushPendingNavigation,
@@ -53,14 +54,16 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <LanguageProvider>
-        <SafeAreaProvider>
-          <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
-            <RootNavigator />
-            <Toast />
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </LanguageProvider>
+      <NetworkProvider>
+        <LanguageProvider>
+          <SafeAreaProvider>
+            <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
+              <RootNavigator />
+              <Toast />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </LanguageProvider>
+      </NetworkProvider>
     </AuthProvider>
   );
 }

@@ -9,12 +9,36 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import PaginatedList from '@components/PaginatedList';
+import { useNetwork } from '@context/NetworkContext';
 import { getCategories, deleteCategory } from './api';
+import { loadCategoriesCache } from './cache';
 
 export default function FunctionCategoriesScreen({ navigation,route  }) {
+  const { isOnline } = useNetwork();
   const [categories, setCategories] = useState([]);
   const [refreshKey, setRefreshKey] = useState('categories');
   const PAGE_SIZE = 10;
+
+  // Load cached data when offline
+  useEffect(() => {
+    if (!isOnline) {
+      loadOfflineData();
+    }
+  }, [isOnline]);
+
+  const loadOfflineData = async () => {
+    const cachedData = await loadCategoriesCache();
+    if (cachedData && cachedData.length > 0) {
+      setCategories(cachedData);
+      Toast.show({
+        type: 'info',
+        text1: 'Offline Mode',
+        text2: 'Showing cached categories',
+      });
+    } else {
+      setCategories([]);
+    }
+  };
 
   // Refresh list when screen is focused (returning from form or detail)
   useFocusEffect(
@@ -25,12 +49,20 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
   );
 
   const fetchData = useCallback(async ({ page, limit }) => {
+    // When offline, return empty to disable pagination
+    if (!isOnline) {
+      return {
+        data: [],
+        meta: { page: 1, total: 0, hasMore: false },
+      };
+    }
+
     const result = await getCategories({ page, limit });
     return {
       data: result.data,
       meta: result.meta,
     };
-  }, []);
+  }, [isOnline]);
 
   const handleDataLoaded = useCallback((newItems, meta) => {
     setCategories(prev => (meta.page === 1 ? newItems : [...prev, ...newItems]));
@@ -45,6 +77,15 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
   }, []);
 
   const handleDelete = item => {
+    if (!isOnline) {
+      Toast.show({
+        type: 'error',
+        text1: 'Offline Mode',
+        text2: 'Cannot delete while offline',
+      });
+      return;
+    }
+
     Alert.alert(
       'Delete Category',
       `Are you sure you want to delete "${item.name}"?`,
@@ -90,19 +131,29 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionBtn, styles.edit]}
-          onPress={() =>
+          style={[styles.actionBtn, styles.edit, !isOnline && styles.actionBtnDisabled]}
+          onPress={() => {
+            if (!isOnline) {
+              Toast.show({
+                type: 'error',
+                text1: 'Offline Mode',
+                text2: 'Cannot edit while offline',
+              });
+              return;
+            }
             navigation.navigate('FunctionCategoryForm', {
               category: item,
-            })
-          }
+            });
+          }}
+          disabled={!isOnline}
         >
           <Text style={styles.actionText}>Edit</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, styles.delete]}
+          style={[styles.actionBtn, styles.delete, !isOnline && styles.actionBtnDisabled]}
           onPress={() => handleDelete(item)}
+          disabled={!isOnline}
         >
           <Text style={styles.actionText}>Delete</Text>
         </TouchableOpacity>
@@ -126,8 +177,19 @@ export default function FunctionCategoriesScreen({ navigation,route  }) {
 
       {/* Add Button */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('FunctionCategoryForm')}
+        style={[styles.fab, !isOnline && styles.fabDisabled]}
+        onPress={() => {
+          if (!isOnline) {
+            Toast.show({
+              type: 'error',
+              text1: 'Offline Mode',
+              text2: 'Cannot add while offline',
+            });
+            return;
+          }
+          navigation.navigate('FunctionCategoryForm');
+        }}
+        disabled={!isOnline}
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
@@ -175,6 +237,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: 8,
   },
+  actionBtnDisabled: {
+    opacity: 0.5,
+  },
   edit: {
     backgroundColor: '#1976D2',
   },
@@ -197,6 +262,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
+  },
+  fabDisabled: {
+    opacity: 0.5,
   },
   fabText: {
     color: '#fff',

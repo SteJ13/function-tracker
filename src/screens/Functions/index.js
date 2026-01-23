@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import NetInfo from '@react-native-community/netinfo';
 import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
@@ -16,6 +17,7 @@ import FunctionFilters from '@components/Filters/FunctionFilters';
 import { getFunctions, deleteFunction } from './api';
 import { getCategories } from '../FunctionCategories/api';
 import { formatDisplayDate, formatDisplayTime } from '@utils';
+import { loadFunctionsCache } from './cache';
 
 const PAGE_SIZE = 10;
 
@@ -25,6 +27,7 @@ export default function FunctionListScreen({ navigation, route }) {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [isOnline, setIsOnline] = useState(true);
   const [advancedFilters, setAdvancedFilters] = useState({
     category_id: undefined,
     location_id: undefined,
@@ -33,9 +36,41 @@ export default function FunctionListScreen({ navigation, route }) {
     to_date: undefined,
   });
 
+  // Setup network state listener
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? true);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Load categories and locations on mount
   useEffect(() => {
     loadFilterOptions();
+  }, []);
+
+  // Load offline cache when going offline
+  useEffect(() => {
+    if (!isOnline) {
+      loadOfflineData();
+    }
+  }, [isOnline]);
+
+  const loadOfflineData = useCallback(async () => {
+    try {
+      const cachedData = await loadFunctionsCache();
+      if (cachedData) {
+        setData(cachedData);
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Viewing cached data',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading offline cache:', error);
+    }
   }, []);
 
   const loadFilterOptions = useCallback(async () => {
@@ -164,6 +199,15 @@ export default function FunctionListScreen({ navigation, route }) {
   // Delete function
   const handleDelete = useCallback(
     item => {
+      if (!isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Cannot delete in offline mode',
+        });
+        return;
+      }
+
       Alert.alert(
         'Delete Function',
         `Are you sure you want to delete "${item.title}"?`,
@@ -200,7 +244,8 @@ export default function FunctionListScreen({ navigation, route }) {
         ]
       );
     },
-    []
+    [],
+    [isOnline]
   );
 
   // Navigate to detail screen
@@ -214,9 +259,18 @@ export default function FunctionListScreen({ navigation, route }) {
   // Navigate to edit screen
   const handleEdit = useCallback(
     item => {
+      if (!isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Cannot edit in offline mode',
+        });
+        return;
+      }
+
       navigation.navigate('FunctionForm', { functionId: item.id });
     },
-    [navigation]
+    [navigation, isOnline]
   );
 
   // Render list item
@@ -258,15 +312,17 @@ export default function FunctionListScreen({ navigation, route }) {
 
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.edit]}
+              style={[styles.actionBtn, styles.edit, !isOnline && styles.actionBtnDisabled]}
               onPress={() => handleEdit(item)}
+              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtn, styles.delete]}
+              style={[styles.actionBtn, styles.delete, !isOnline && styles.actionBtnDisabled]}
               onPress={() => handleDelete(item)}
+              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Delete</Text>
             </TouchableOpacity>
@@ -292,6 +348,19 @@ export default function FunctionListScreen({ navigation, route }) {
   const EmptyComponent = useCallback(
     () => {
       const filtersActive = hasActiveFilters();
+
+      // Offline with no cache
+      if (!isOnline && data.length === 0) {
+        return (
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>📡</Text>
+            <Text style={styles.emptyText}>No Offline Cache</Text>
+            <Text style={styles.emptySubtext}>
+              Go online to load and cache functions
+            </Text>
+          </View>
+        );
+      }
 
       return (
         <View style={styles.empty}>
@@ -320,7 +389,7 @@ export default function FunctionListScreen({ navigation, route }) {
         </View>
       );
     },
-    [hasActiveFilters, handleFilterClear]
+    [hasActiveFilters, handleFilterClear, isOnline, data.length]
   );
 
   return (
@@ -360,10 +429,18 @@ export default function FunctionListScreen({ navigation, route }) {
         />
       </Modal>
 
+      {/* Offline Indicator */}
+      {!isOnline && (
+        <View style={styles.offlineIndicator}>
+          <Text style={styles.offlineIndicatorText}>📡 Offline Mode (cached data)</Text>
+        </View>
+      )}
+
       {/* FAB: Add new function */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, !isOnline && styles.fabDisabled]}
         onPress={() => navigation.navigate('FunctionForm')}
+        disabled={!isOnline}
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
@@ -490,6 +567,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: 8,
   },
+  actionBtnDisabled: {
+    opacity: 0.5,
+  },
   edit: {
     backgroundColor: '#1976D2',
   },
@@ -546,9 +626,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 4,
   },
+  fabDisabled: {
+    opacity: 0.5,
+  },
   fabText: {
     color: '#fff',
     fontSize: 28,
     lineHeight: 28,
+  },
+  offlineIndicator: {
+    position: 'absolute',
+    bottom: 85,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  offlineIndicatorText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

@@ -1,8 +1,11 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '@context/AuthContext';
+import { useNetwork } from '@context/NetworkContext';
 import AppLoader from '@components/AppLoader';
 import HeaderUserMenu from '@components/HeaderUserMenu';
+import OfflineBanner from '@components/OfflineBanner';
 
 // Auth Screens
 import LoginScreen from '@screens/Auth/login';
@@ -84,6 +87,7 @@ function AppStack() {
 // Root Navigator - decides which stack to show based on auth state
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const { isOnline } = useNetwork();
 
   // Show loader while checking auth state
   if (loading) {
@@ -91,5 +95,10 @@ export default function RootNavigator() {
   }
 
   // Show AuthStack if no user, AppStack if user exists
-  return user ? <AppStack /> : <AuthStack />;
+  return (
+    <View style={{ flex: 1 }}>
+      {!isOnline && <OfflineBanner />}
+      {user ? <AppStack /> : <AuthStack />}
+    </View>
+  );
 }

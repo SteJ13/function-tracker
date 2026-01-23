@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Controller } from 'react-hook-form';
 import { supabase } from '@services/supabaseClient';
+import { useNetwork } from '@context/NetworkContext';
+import { saveLocationsCache, loadLocationsCache } from '@services/locationCache';
 
 export default function RHFLocationInput({
   name,
@@ -19,11 +21,50 @@ export default function RHFLocationInput({
   rules = {},
   disabled = false,
 }) {
+  const { isOnline } = useNetwork();
   const [inputText, setInputText] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [allLocations, setAllLocations] = useState([]);
   const debounceTimer = useRef(null);
+
+  // Load all locations on mount for offline caching
+  useEffect(() => {
+    loadAllLocations();
+  }, [isOnline]);
+
+  const loadAllLocations = useCallback(async () => {
+    if (!isOnline) {
+      // Load from cache when offline
+      const cachedLocations = await loadLocationsCache();
+      if (cachedLocations) {
+        setAllLocations(cachedLocations);
+      }
+      return;
+    }
+
+    // Fetch from API when online
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Failed to load locations:', error);
+        return;
+      }
+
+      if (data) {
+        setAllLocations(data);
+        // Cache for offline use
+        await saveLocationsCache(data);
+      }
+    } catch (err) {
+      console.error('Load locations exception:', err);
+    }
+  }, [isOnline]);
 
   const searchLocations = useCallback(async (query) => {
     if (!query || query.trim().length === 0) {
@@ -32,11 +73,24 @@ export default function RHFLocationInput({
       return;
     }
 
+    const searchTerm = query.trim().toLowerCase();
+
+    if (!isOnline) {
+      // Search in cached locations when offline
+      const filtered = allLocations
+        .filter(loc => loc.name.toLowerCase().includes(searchTerm))
+        .slice(0, 10);
+      setSuggestions(filtered);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch from API when online
     try {
       const { data, error } = await supabase
         .from('locations')
         .select('id, name')
-        .ilike('name', `%${query.trim()}%`)
+        .ilike('name', `%${searchTerm}%`)
         .limit(10);
 
       if (error) {
@@ -51,7 +105,7 @@ export default function RHFLocationInput({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isOnline, allLocations]);
 
   const handleTextChange = useCallback(
     (text, onChange) => {
@@ -88,6 +142,7 @@ export default function RHFLocationInput({
   const handleAddNewLocation = useCallback(
     async (text, onChange) => {
       if (!text || text.trim().length === 0) return;
+      if (!isOnline) return; // Block when offline
 
       setLoading(true);
       try {
@@ -108,6 +163,8 @@ export default function RHFLocationInput({
           setShowSuggestions(false);
           setSuggestions([]);
           Keyboard.dismiss();
+          // Reload all locations to update cache
+          loadAllLocations();
         }
       } catch (err) {
         console.error('Add location exception:', err);
@@ -115,7 +172,7 @@ export default function RHFLocationInput({
         setLoading(false);
       }
     },
-    []
+    [isOnline, loadAllLocations]
   );
 
   const handleBlur = useCallback(() => {
@@ -128,6 +185,18 @@ export default function RHFLocationInput({
   const loadLocationName = useCallback(async (locationId) => {
     if (!locationId) {
       setInputText('');
+      return;
+    }
+
+    // Try to find in cached locations first
+    const cachedLocation = allLocations.find(loc => loc.id === locationId);
+    if (cachedLocation) {
+      setInputText(cachedLocation.name);
+      return;
+    }
+
+    // If not in cache and online, fetch from API
+    if (!isOnline) {
       return;
     }
 
@@ -149,7 +218,7 @@ export default function RHFLocationInput({
     } catch (err) {
       console.error('Load location exception:', err);
     }
-  }, []);
+  }, [allLocations, isOnline]);
 
   return (
     <Controller
@@ -167,7 +236,7 @@ export default function RHFLocationInput({
         }, [value]);
 
         const hasResults = suggestions.length > 0;
-        const showAddOption = inputText.trim().length > 0 && !hasResults && !loading;
+        const showAddOption = inputText.trim().length > 0 && !hasResults && !loading && isOnline;
 
         return (
           <View style={styles.container}>

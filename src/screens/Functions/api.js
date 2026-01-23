@@ -1,5 +1,6 @@
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
+import { saveFunctionsCache } from './cache';
 
 const PAGE_SIZE = 10;
 
@@ -56,6 +57,11 @@ export async function getFunctions({
     location: item.locations || null,
     locations: undefined,
   })) || [];
+
+  // Cache successful response
+  if (transformedData.length > 0) {
+    saveFunctionsCache(transformedData);
+  }
 
   return {
     data: transformedData,

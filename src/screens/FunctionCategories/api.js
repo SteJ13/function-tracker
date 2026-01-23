@@ -1,5 +1,6 @@
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
+import { saveCategoriesCache } from './cache';
 
 const PAGE_SIZE = 10;
 
@@ -18,6 +19,11 @@ export async function getCategories({
 
   if (error) {
     throw error;
+  }
+
+  // Cache successful response for offline access
+  if (data) {
+    await saveCategoriesCache(data);
   }
 
   return {
