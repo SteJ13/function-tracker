@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
 
-      authListener = supabase.auth.onAuthStateChange((event, newSession) => {
+      authListener = supabase.auth.onAuthStateChange((_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user || null);
       }).data?.subscription;

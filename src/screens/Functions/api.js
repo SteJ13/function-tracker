@@ -1,4 +1,5 @@
 import { supabase } from '@services/supabaseClient';
+import * as db from '@services/db';
 
 const PAGE_SIZE = 10;
 
@@ -6,6 +7,7 @@ export async function getFunctions({
   page = 1,
   limit = PAGE_SIZE,
   status,
+  filters = {},
 }) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -16,8 +18,30 @@ export async function getFunctions({
     .order('function_date', { ascending: true })
     .range(from, to);
 
+  // Handle legacy status parameter for backward compatibility
   if (status && status !== 'all') {
     query = query.eq('status', status);
+  }
+
+  // Apply filters
+  if (filters.category_id) {
+    query = query.eq('category_id', filters.category_id);
+  }
+
+  if (filters.location_id) {
+    query = query.eq('location_id', filters.location_id);
+  }
+
+  if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
+    query = query.in('status', filters.status);
+  }
+
+  if (filters.from_date) {
+    query = query.gte('function_date', filters.from_date);
+  }
+
+  if (filters.to_date) {
+    query = query.lte('function_date', filters.to_date);
   }
 
   const { data, count, error } = await query;
@@ -63,35 +87,38 @@ export async function getFunctionById(id) {
 }
 
 export async function addFunction(functionData) {
-  const { data, error } = await supabase
+  const data = await db.insert('functions', functionData);
+
+  // Fetch with location data
+  const { data: result, error } = await supabase
     .from('functions')
-    .insert(functionData)
     .select('*, locations(id, name)')
+    .eq('id', data.id)
     .single();
 
   if (error) {
-    console.log('error: ', error);
     throw error;
   }
 
   // Transform location_id to location object
   return {
-    ...data,
-    location: data.locations || null,
+    ...result,
+    location: result.locations || null,
     locations: undefined,
   };
 }
 
 export async function updateFunction(id, updates) {
+  await db.update('functions', id, updates);
+
+  // Fetch with location data
   const { data, error } = await supabase
     .from('functions')
-    .update(updates)
-    .eq('id', id)
     .select('*, locations(id, name)')
+    .eq('id', id)
     .single();
 
   if (error) {
-    console.log('error: ', error);
     throw error;
   }
 
@@ -104,16 +131,7 @@ export async function updateFunction(id, updates) {
 }
 
 export async function deleteFunction(id) {
-  const { error } = await supabase
-    .from('functions')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.log('error: ', error);
-    throw error;
-  }
-
+  await db.remove('functions', id);
   return true;
 }
 

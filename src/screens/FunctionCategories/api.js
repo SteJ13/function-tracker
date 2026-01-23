@@ -1,4 +1,5 @@
 import { supabase } from '@services/supabaseClient';
+import * as db from '@services/db';
 
 const PAGE_SIZE = 10;
 
@@ -44,43 +45,16 @@ export async function getCategoryByUuid(id) {
 }
 
 export async function addCategory(categoryData) {
-  const { data, error } = await supabase
-    .from('categories')
-    .insert(categoryData)
-    .select()
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
+  const data = await db.insert('categories', categoryData);
   return data;
 }
 
 export async function updateCategory(id, updates) {
-  const { data, error } = await supabase
-    .from('categories')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
+  const data = await db.update('categories', id, updates);
   return data;
 }
 
 export async function deleteCategory(id) {
-  const { error } = await supabase
-    .from('categories')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    throw error;
-  }
-
+  await db.remove('categories', id);
   return true;
 }

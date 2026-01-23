@@ -6,27 +6,83 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
+import FunctionFilters from '@components/Filters/FunctionFilters';
 import { getFunctions, deleteFunction } from './api';
+import { getCategories } from '../FunctionCategories/api';
 import { formatDisplayDate, formatDisplayTime } from '@utils';
 
 const PAGE_SIZE = 10;
 
-const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'upcoming', label: 'Upcoming' },
-  { id: 'completed', label: 'Completed' },
-  { id: 'cancelled', label: 'Cancelled' },
-];
-
 export default function FunctionListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('all');
   const [refreshKey, setRefreshKey] = useState('functions');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [advancedFilters, setAdvancedFilters] = useState({
+    category_id: undefined,
+    location_id: undefined,
+    status: [],
+    from_date: undefined,
+    to_date: undefined,
+  });
+
+  // Load categories and locations on mount
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
+
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      const [categoriesRes] = await Promise.all([
+        getCategories({ page: 1, limit: 100 }),
+      ]);
+
+      const categoryOptions = categoriesRes.data.map(cat => ({
+        value: cat.id,
+        label: cat.name,
+      }));
+      setCategories(categoryOptions);
+    } catch (error) {
+      console.error('Failed to load filter options:', error);
+    }
+  }, []);
+
+  // Calculate active filter count
+  const getActiveFilterCount = useCallback(() => {
+    let count = 0;
+    if (advancedFilters.category_id) count++;
+    if (advancedFilters.location_id) count++;
+    if (advancedFilters.status?.length > 0) count++;
+    if (advancedFilters.from_date || advancedFilters.to_date) count++;
+    return count;
+  }, [advancedFilters]);
+
+  // Set header options with filter button
+  useEffect(() => {
+    const filterCount = getActiveFilterCount();
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => setShowFilterPanel(true)}
+        >
+          <Text style={styles.headerButtonText}>⚙️</Text>
+          {filterCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{filterCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, getActiveFilterCount]);
 
   // Refresh list when screen is focused (returning from form or detail)
   useFocusEffect(
@@ -36,14 +92,18 @@ export default function FunctionListScreen({ navigation, route }) {
     }, [])
   );
 
-  // API call with status filter
+  // API call with advanced filters only
   const fetchData = useCallback(async ({ page, limit }) => {
-    const filterStatus = activeFilter === 'all' ? null : activeFilter;
-
     const response = await getFunctions({
       page,
       limit,
-      status: filterStatus,
+      filters: {
+        category_id: advancedFilters.category_id,
+        location_id: advancedFilters.location_id,
+        status: advancedFilters.status?.length > 0 ? advancedFilters.status : undefined,
+        from_date: advancedFilters.from_date,
+        to_date: advancedFilters.to_date,
+      },
     });
 
     return {
@@ -54,12 +114,34 @@ export default function FunctionListScreen({ navigation, route }) {
         hasMore: response.meta.hasMore,
       },
     };
-  }, [activeFilter]);
+  }, [advancedFilters]);
+
+  // Handle filter apply
+  const handleFilterApply = useCallback((appliedFilters) => {
+    setAdvancedFilters(appliedFilters);
+    setData([]);
+    setRefreshKey(`functions-${Date.now()}`);
+    setShowFilterPanel(false);
+  }, []);
+
+  // Handle filter clear
+  const handleFilterClear = useCallback(() => {
+    setAdvancedFilters({
+      category_id: undefined,
+      location_id: undefined,
+      status: [],
+      from_date: undefined,
+      to_date: undefined,
+    });
+    setData([]);
+    setRefreshKey(`functions-${Date.now()}`);
+    setShowFilterPanel(false);
+  }, []);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
     setData([]);
-  }, [activeFilter]);
+  }, [advancedFilters]);
 
   // Handle new data from PaginatedList
   const handleDataLoaded = useCallback((newItems, meta) => {
@@ -195,47 +277,54 @@ export default function FunctionListScreen({ navigation, route }) {
     [handlePress, handleEdit, handleDelete]
   );
 
+  // Check if any filters are active
+  const hasActiveFilters = useCallback(() => {
+    return (
+      advancedFilters.category_id ||
+      advancedFilters.location_id ||
+      (advancedFilters.status?.length > 0) ||
+      advancedFilters.from_date ||
+      advancedFilters.to_date
+    );
+  }, [advancedFilters]);
+
   // Empty state component
   const EmptyComponent = useCallback(
-    () => (
-      <View style={styles.empty}>
-        <Text style={styles.emptyIcon}>📋</Text>
-        <Text style={styles.emptyText}>No functions yet</Text>
-        <Text style={styles.emptySubtext}>
-          Tap the + button to create your first function
-        </Text>
-      </View>
-    ),
-    []
+    () => {
+      const filtersActive = hasActiveFilters();
+
+      return (
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>📋</Text>
+          {filtersActive ? (
+            <>
+              <Text style={styles.emptyText}>No functions match your filters</Text>
+              <Text style={styles.emptySubtext}>
+                Try adjusting your filters to see more results
+              </Text>
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={handleFilterClear}
+              >
+                <Text style={styles.clearFiltersButtonText}>Clear Filters</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyText}>No functions yet</Text>
+              <Text style={styles.emptySubtext}>
+                Tap the + button to create your first function
+              </Text>
+            </>
+          )}
+        </View>
+      );
+    },
+    [hasActiveFilters, handleFilterClear]
   );
 
   return (
     <View style={styles.container}>
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {FILTERS.map(filter => (
-            <TouchableOpacity
-              key={filter.id}
-              style={[
-                styles.filterTab,
-                activeFilter === filter.id && styles.filterTabActive,
-              ]}
-              onPress={() => setActiveFilter(filter.id)}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  activeFilter === filter.id && styles.filterTabTextActive,
-                ]}
-              >
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
       <PaginatedList
         key={refreshKey}
         data={data}
@@ -248,6 +337,28 @@ export default function FunctionListScreen({ navigation, route }) {
         emptyComponent={EmptyComponent}
         contentContainerStyle={styles.listContent}
       />
+
+      {/* Advanced Filter Panel Modal */}
+      <Modal
+        visible={showFilterPanel}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFilterPanel(false)}
+      >
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowFilterPanel(false)}>
+            <Text style={styles.modalCloseButton}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <FunctionFilters
+          filters={advancedFilters}
+          categoryOptions={categories}
+          locationOptions={locations}
+          onChange={setAdvancedFilters}
+          onApply={handleFilterApply}
+          onClear={handleFilterClear}
+        />
+      </Modal>
 
       {/* FAB: Add new function */}
       <TouchableOpacity
@@ -265,32 +376,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F6F8FA',
   },
+  headerButton: {
+    marginRight: 16,
+    padding: 8,
+    position: 'relative',
+  },
+  headerButtonText: {
+    fontSize: 20,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalCloseButton: {
+    fontSize: 24,
+    color: '#666',
+    padding: 8,
+  },
   filterContainer: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
-  },
-  filterScroll: {
     paddingHorizontal: 12,
-  },
-  filterTab: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginHorizontal: 4,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  filterTabActive: {
-    borderBottomColor: '#1976D2',
-  },
-  filterTabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#999',
-  },
-  filterTabTextActive: {
-    color: '#1976D2',
-    fontWeight: '600',
   },
   listContent: {
     padding: 16,
@@ -391,6 +520,19 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#999',
+    marginBottom: 16,
+  },
+  clearFiltersButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#1976D2',
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  clearFiltersButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',
