@@ -1,30 +1,13 @@
 import { supabase } from './supabaseClient';
-import { getUser } from '@utils/authStorage';
-
-/**
- * Get current user ID from AsyncStorage
- * @throws {Error} if user not found
- * @returns {Promise<string>} user ID
- */
-async function getUserId() {
-  const user = await getUser();
-  
-  if (!user?.id) {
-    throw new Error('User not authenticated');
-  }
-  
-  return user.id;
-}
 
 /**
  * Insert a new record with automatic user_id injection
  * @param {string} table - Table name
  * @param {object} data - Data to insert
+ * @param {string} userId - User ID to inject
  * @returns {Promise<object>} Supabase response
  */
-export async function insert(table, data) {
-  const userId = await getUserId();
-  
+export async function insert(table, data, userId) {
   const payload = {
     ...data,
     user_id: userId,
@@ -48,11 +31,10 @@ export async function insert(table, data) {
  * @param {string} table - Table name
  * @param {string|number} id - Record id
  * @param {object} data - Data to update
+ * @param {string} userId - User ID for updated_by
  * @returns {Promise<object>} Supabase response
  */
-export async function update(table, id, data) {
-  const userId = await getUserId();
-  
+export async function update(table, id, data, userId) {
   const payload = {
     ...data,
     updated_by: userId,

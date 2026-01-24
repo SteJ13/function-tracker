@@ -50,13 +50,13 @@ export async function getCategoryByUuid(id) {
   return data;
 }
 
-export async function addCategory(categoryData) {
-  const data = await db.insert('categories', categoryData);
+export async function addCategory(categoryData, userId) {
+  const data = await db.insert('categories', categoryData, userId);
   return data;
 }
 
-export async function updateCategory(id, updates) {
-  const data = await db.update('categories', id, updates);
+export async function updateCategory(id, updates, userId) {
+  const data = await db.update('categories', id, updates, userId);
   return data;
 }
 

@@ -11,11 +11,8 @@ import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 
 import { Input, Select, DatePicker, TimePicker, StatusSelector, RHFLocationInput } from '@components/FormInputs';
-import {
-  getFunctionById,
-  addFunction,
-  updateFunction,
-} from './api';
+import { getFunctionById } from './api';
+import useFunctionActions from './useFunctionActions';
 import { getCategories } from '@screens/FunctionCategories/api';
 
 const STATUS_OPTIONS = [
@@ -28,6 +25,7 @@ export default function FunctionFormScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const { createFunction, updateFunction } = useFunctionActions();
 
   // Fetch categories on mount
   useEffect(() => {
@@ -118,7 +116,7 @@ export default function FunctionFormScreen({ navigation, route }) {
 
           Toast.show({ type: 'success', text1: 'Function updated' });
         } else {
-          await addFunction({
+          await createFunction({
             title: values.title.trim(),
             category_id: values.categoryId,
             function_date: values.date,
@@ -133,6 +131,7 @@ export default function FunctionFormScreen({ navigation, route }) {
 
         navigation.goBack();
       } catch (error) {
+        console.log('error: ', error);
         Toast.show({
           type: 'error',
           text1: functionId ? 'Failed to update function' : 'Failed to save function',

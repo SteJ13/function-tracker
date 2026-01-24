@@ -14,12 +14,30 @@ import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
 import FunctionFilters from '@components/Filters/FunctionFilters';
-import { getFunctions, deleteFunction } from './api';
+import { getFunctions } from './api';
 import { getCategories } from '../FunctionCategories/api';
 import { formatDisplayDate, formatDisplayTime } from '@utils';
 import { loadFunctionsCache } from './cache';
+import { addToQueue } from '@services/offlineQueue';
+import useFunctionActions from './useFunctionActions';
 
 const PAGE_SIZE = 10;
+
+// Simple temp id generator for offline items and queue entries
+const generateTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// Enqueue an offline action for later sync
+const enqueueOfflineAction = async (action, payload) => {
+  const queueItem = {
+    id: generateTempId(),
+    action,
+    table: 'functions',
+    payload,
+    timestamp: Date.now(),
+  };
+
+  await addToQueue(queueItem);
+};
 
 export default function FunctionListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
@@ -35,6 +53,29 @@ export default function FunctionListScreen({ navigation, route }) {
     from_date: undefined,
     to_date: undefined,
   });
+  const { deleteFunction: deleteFunctionAction } = useFunctionActions();
+
+  // Optimistic helpers for offline actions
+  const applyOptimisticCreate = useCallback(async newItem => {
+    const tempId = newItem.id || generateTempId();
+    const pendingItem = { ...newItem, id: tempId, _pending: true };
+
+    setData(prev => [pendingItem, ...prev]);
+
+    await enqueueOfflineAction('create', pendingItem);
+  }, []);
+
+  const applyOptimisticUpdate = useCallback(async updatedItem => {
+    if (!updatedItem?.id) return;
+
+    setData(prev =>
+      prev.map(f =>
+        f.id === updatedItem.id ? { ...f, ...updatedItem, _pending: true } : f
+      )
+    );
+
+    await enqueueOfflineAction('update', updatedItem);
+  }, []);
 
   // Setup network state listener
   useEffect(() => {
@@ -49,6 +90,23 @@ export default function FunctionListScreen({ navigation, route }) {
   useEffect(() => {
     loadFilterOptions();
   }, []);
+
+  // Apply pending offline actions passed via navigation params (if any)
+  useEffect(() => {
+    if (!route?.params) return;
+
+    const { offlineCreate, offlineUpdate } = route.params;
+
+    if (offlineCreate && !isOnline) {
+      applyOptimisticCreate(offlineCreate);
+      navigation.setParams({ ...route.params, offlineCreate: undefined });
+    }
+
+    if (offlineUpdate && !isOnline) {
+      applyOptimisticUpdate(offlineUpdate);
+      navigation.setParams({ ...route.params, offlineUpdate: undefined });
+    }
+  }, [route?.params, isOnline, applyOptimisticCreate, applyOptimisticUpdate, navigation]);
 
   // Load offline cache when going offline
   useEffect(() => {
@@ -199,15 +257,6 @@ export default function FunctionListScreen({ navigation, route }) {
   // Delete function
   const handleDelete = useCallback(
     item => {
-      if (!isOnline) {
-        Toast.show({
-          type: 'info',
-          text1: 'Offline Mode',
-          text2: 'Cannot delete in offline mode',
-        });
-        return;
-      }
-
       Alert.alert(
         'Delete Function',
         `Are you sure you want to delete "${item.title}"?`,
@@ -222,7 +271,7 @@ export default function FunctionListScreen({ navigation, route }) {
             onPress: async () => {
               try {
                 const functionId = item.id;
-                await deleteFunction(functionId);
+                await deleteFunctionAction(functionId);
 
                 setData(prevData =>
                   prevData.filter(f => f.id !== functionId)
@@ -244,8 +293,7 @@ export default function FunctionListScreen({ navigation, route }) {
         ]
       );
     },
-    [],
-    [isOnline]
+    [deleteFunctionAction]
   );
 
   // Navigate to detail screen
@@ -259,18 +307,9 @@ export default function FunctionListScreen({ navigation, route }) {
   // Navigate to edit screen
   const handleEdit = useCallback(
     item => {
-      if (!isOnline) {
-        Toast.show({
-          type: 'info',
-          text1: 'Offline Mode',
-          text2: 'Cannot edit in offline mode',
-        });
-        return;
-      }
-
       navigation.navigate('FunctionForm', { functionId: item.id });
     },
-    [navigation, isOnline]
+    [navigation]
   );
 
   // Render list item
@@ -312,17 +351,15 @@ export default function FunctionListScreen({ navigation, route }) {
 
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.edit, !isOnline && styles.actionBtnDisabled]}
+              style={[styles.actionBtn, styles.edit]}
               onPress={() => handleEdit(item)}
-              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtn, styles.delete, !isOnline && styles.actionBtnDisabled]}
+              style={[styles.actionBtn, styles.delete]}
               onPress={() => handleDelete(item)}
-              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Delete</Text>
             </TouchableOpacity>
@@ -438,9 +475,8 @@ export default function FunctionListScreen({ navigation, route }) {
 
       {/* FAB: Add new function */}
       <TouchableOpacity
-        style={[styles.fab, !isOnline && styles.fabDisabled]}
+        style={styles.fab}
         onPress={() => navigation.navigate('FunctionForm')}
-        disabled={!isOnline}
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>

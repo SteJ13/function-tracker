@@ -1,8 +1,17 @@
+import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
 import { saveFunctionsCache } from './cache';
 
 const PAGE_SIZE = 10;
+
+// Ensure network is online before making API calls
+async function ensureOnline() {
+  const state = await NetInfo.fetch();
+  if (!state.isConnected) {
+    throw new Error('Offline');
+  }
+}
 
 export async function getFunctions({
   page = 1,
@@ -10,6 +19,8 @@ export async function getFunctions({
   status,
   filters = {},
 }) {
+  await ensureOnline();
+
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -58,10 +69,8 @@ export async function getFunctions({
     locations: undefined,
   })) || [];
 
-  // Cache successful response
-  if (transformedData.length > 0) {
-    saveFunctionsCache(transformedData);
-  }
+  // Cache successful response on every call (including empty arrays)
+  await saveFunctionsCache(transformedData);
 
   return {
     data: transformedData,
@@ -74,6 +83,8 @@ export async function getFunctions({
 }
 
 export async function getFunctionById(id) {
+  await ensureOnline();
+
   const { data, error } = await supabase
     .from('functions')
     .select('*, locations(id, name)')
@@ -92,8 +103,10 @@ export async function getFunctionById(id) {
   };
 }
 
-export async function addFunction(functionData) {
-  const data = await db.insert('functions', functionData);
+export async function addFunction(functionData, userId) {
+  await ensureOnline();
+
+  const data = await db.insert('functions', functionData, userId);
 
   // Fetch with location data
   const { data: result, error } = await supabase
@@ -114,8 +127,10 @@ export async function addFunction(functionData) {
   };
 }
 
-export async function updateFunction(id, updates) {
-  await db.update('functions', id, updates);
+export async function updateFunction(id, updates, userId) {
+  await ensureOnline();
+
+  await db.update('functions', id, updates, userId);
 
   // Fetch with location data
   const { data, error } = await supabase
@@ -137,11 +152,15 @@ export async function updateFunction(id, updates) {
 }
 
 export async function deleteFunction(id) {
+  await ensureOnline();
+
   await db.remove('functions', id);
   return true;
 }
 
 export async function getFunctionCounts() {
+  await ensureOnline();
+
   const today = new Date().toISOString().split('T')[0];
 
   try {

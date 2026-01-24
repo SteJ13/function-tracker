@@ -5,11 +5,13 @@ import Toast from 'react-native-toast-message';
 
 import Input from '@components/FormInputs/Input';
 import { useLanguage } from '@context/LanguageContext';
+import { useAuth } from '@context/AuthContext';
 import { addCategory, updateCategory } from './api';
 
 export default function FunctionCategoryForm({ navigation, route }) {
 
     const { translations } = useLanguage();
+    const { user } = useAuth();
 
 
   const editingCategory = route?.params?.category;
@@ -31,9 +33,9 @@ export default function FunctionCategoryForm({ navigation, route }) {
       const categoryId = editingCategory?.id;
       
       if (editingCategory) {
-        await updateCategory(categoryId, data);
+        await updateCategory(categoryId, data, user?.id);
       } else {
-        await addCategory(data);
+        await addCategory(data, user?.id);
       }
 
       navigation.goBack();
