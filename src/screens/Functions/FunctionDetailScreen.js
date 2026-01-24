@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { getFunctionById, deleteFunction } from './api';
+import { getFunctionById } from './api';
+import useFunctionActions from './useFunctionActions';
 
 export default function FunctionDetailScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
+  const { deleteFunction } = useFunctionActions();
 
   const [functionData, setFunctionData] = useState(null);
   const [categoryMap, setCategoryMap] = useState({});

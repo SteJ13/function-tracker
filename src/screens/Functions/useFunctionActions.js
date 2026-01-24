@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
-import { executeOfflineAction } from '@services/offlineExecutor';
+import useOfflineExecutor from '@hooks/useOfflineExecutor';
 import { addFunction, updateFunction, deleteFunction } from './api';
 
 export default function useFunctionActions() {
+  const { executeOfflineAction } = useOfflineExecutor();
+
   // Create
   const createFunction = useCallback(
     data =>
@@ -12,7 +14,7 @@ export default function useFunctionActions() {
         payload: data,
         apiCall: (payload, userId) => addFunction(payload, userId),
       }),
-    []
+    [executeOfflineAction]
   );
 
   // Update
@@ -24,7 +26,7 @@ export default function useFunctionActions() {
         payload: { id, updates },
         apiCall: (payload, userId) => updateFunction(payload.id, payload.updates, userId),
       }),
-    []
+    [executeOfflineAction]
   );
 
   // Delete
@@ -36,7 +38,7 @@ export default function useFunctionActions() {
         payload: { id },
         apiCall: payload => deleteFunction(payload.id),
       }),
-    []
+    [executeOfflineAction]
   );
 
   return {
