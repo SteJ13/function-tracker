@@ -57,7 +57,7 @@ export async function addContribution(contributionData, userId) {
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('*, locations:place_id(id, name, name_ta)')
+    .select('*, locations:place_id(id, name, tamil_name)')
     .eq('id', inserted.id)
     .single();
 
@@ -79,7 +79,7 @@ export async function updateContribution(id, updates, userId) {
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('*, locations:place_id(id, name, name_ta)')
+    .select('*, locations:place_id(id, name, tamil_name)')
     .eq('id', id)
     .single();
 

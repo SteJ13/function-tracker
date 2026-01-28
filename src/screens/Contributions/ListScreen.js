@@ -92,7 +92,7 @@ export default function ContributionsListScreen({ navigation, route }) {
 
   const renderItem = useCallback(({ item }) => {
     const placeName = item.location?.name || 'Unknown place';
-    const placeTamil = item.location?.name_ta;
+    const placeTamil = item.location?.tamil_name || '';
     const placeDisplay = placeTamil ? `${placeName} · ${placeTamil}` : placeName;
     const amountDisplay = item.contribution_type === 'gold'
       ? `${item.amount} grams`

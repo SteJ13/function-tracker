@@ -5,7 +5,6 @@ import {
 	StyleSheet,
 	ScrollView,
 	TouchableOpacity,
-	ActivityIndicator,
 } from 'react-native';
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
@@ -23,6 +22,10 @@ export default function AddContributionScreen({ navigation, route }) {
 	const functionId = route?.params?.functionId;
 	const { user } = useAuth();
 	const [submitting, setSubmitting] = useState(false);
+	const [functionType, setFunctionType] = useState(null);
+	const [matchedContribution, setMatchedContribution] = useState(null);
+	const [matchingLoading, setMatchingLoading] = useState(false);
+	const matchTimer = React.useRef(null);
 
 	const {
 		control,
@@ -52,6 +55,29 @@ export default function AddContributionScreen({ navigation, route }) {
 			navigation.goBack();
 		}
 	}, [functionId, navigation]);
+
+	useEffect(() => {
+		const loadFunctionType = async () => {
+			if (!functionId) return;
+			try {
+				const { data, error } = await supabase
+					.from('functions')
+					.select('function_type')
+					.eq('id', functionId)
+					.single();
+
+				if (error) {
+					throw error;
+				}
+
+				setFunctionType(data?.function_type || null);
+			} catch (error) {
+				console.error('[AddContribution] Failed to load function type:', error);
+			}
+		};
+
+		loadFunctionType();
+	}, [functionId]);
 
 	const saveContribution = useCallback(
 		async (values, exitAfter = false) => {
@@ -135,6 +161,67 @@ export default function AddContributionScreen({ navigation, route }) {
 	);
 
 	const contributionType = watch('contribution_type');
+	const watchPersonName = watch('person_name');
+	const watchPlaceId = watch('place_id');
+	const watchFamilyName = watch('family_name');
+
+	useEffect(() => {
+		if (functionType !== 'INVITATION') {
+			setMatchedContribution(null);
+			return;
+		}
+
+		const personName = watchPersonName?.trim();
+		const placeId = watchPlaceId;
+		const familyName = watchFamilyName?.trim();
+
+		if (!personName || !placeId) {
+			setMatchedContribution(null);
+			return;
+		}
+
+		if (matchTimer.current) {
+			clearTimeout(matchTimer.current);
+		}
+
+		matchTimer.current = setTimeout(async () => {
+			setMatchingLoading(true);
+			try {
+				let query = supabase
+					.from('contributions')
+					.select('id, person_name, family_name, amount, contribution_type, function_id, functions(title, function_date), locations:place_id(id, name, tamil_name)')
+					.eq('direction', 'GIVEN_TO_ME')
+					.eq('returned', false)
+					.eq('place_id', placeId)
+					.ilike('person_name', `%${personName}%`)
+					.order('created_at', { ascending: false })
+					.limit(1);
+
+				if (familyName) {
+					query = query.ilike('family_name', `%${familyName}%`);
+				}
+
+				const { data, error } = await query;
+
+				if (error) {
+					throw error;
+				}
+
+				setMatchedContribution(data?.[0] || null);
+			} catch (error) {
+				console.error('[AddContribution] Match lookup error:', error);
+				setMatchedContribution(null);
+			} finally {
+				setMatchingLoading(false);
+			}
+		}, 400);
+
+		return () => {
+			if (matchTimer.current) {
+				clearTimeout(matchTimer.current);
+			}
+		};
+	}, [functionType, watchPersonName, watchPlaceId, watchFamilyName]);
 
 	return (
 		<ScrollView
@@ -169,6 +256,32 @@ export default function AddContributionScreen({ navigation, route }) {
 					placeholder="Required"
 					voice={false}
 				/>
+
+				{functionType === 'INVITATION' && (matchingLoading || matchedContribution) ? (
+					<View style={styles.matchCard}>
+						<Text style={styles.matchTitle}>Past Contribution</Text>
+						{matchingLoading ? (
+							<Text style={styles.matchLoading}>Searching...</Text>
+						) : (
+							<>
+								<Text style={styles.matchName}>{matchedContribution?.person_name}</Text>
+								<Text style={styles.matchPlace}>
+									{matchedContribution?.locations?.name}
+									{matchedContribution?.locations?.tamil_name ? ` · ${matchedContribution.locations.tamil_name}` : ''}
+								</Text>
+								<Text style={styles.matchAmount}>
+									{matchedContribution?.contribution_type === 'gold'
+										? `${matchedContribution?.amount} grams`
+										: `₹${parseFloat(matchedContribution?.amount || 0).toLocaleString('en-IN')}`}
+								</Text>
+								<Text style={styles.matchFunction}>
+									{matchedContribution?.functions?.title || 'Unknown function'}
+									{matchedContribution?.functions?.function_date ? ` · ${new Date(matchedContribution.functions.function_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''}
+								</Text>
+							</>
+						)}
+					</View>
+				) : null}
 
 				<Input
 					name="spouse_name"
@@ -279,6 +392,47 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '500',
 		color: '#333',
+	},
+	matchCard: {
+		backgroundColor: '#F5F7FA',
+		borderRadius: 10,
+		padding: 12,
+		marginBottom: 16,
+		borderWidth: 1,
+		borderColor: '#E0E0E0',
+	},
+	matchTitle: {
+		fontSize: 12,
+		fontWeight: '700',
+		color: '#666',
+		marginBottom: 6,
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+	},
+	matchLoading: {
+		fontSize: 13,
+		color: '#777',
+	},
+	matchName: {
+		fontSize: 15,
+		fontWeight: '600',
+		color: '#333',
+	},
+	matchPlace: {
+		fontSize: 13,
+		color: '#555',
+		marginTop: 4,
+	},
+	matchAmount: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#1976D2',
+		marginTop: 6,
+	},
+	matchFunction: {
+		fontSize: 12,
+		color: '#777',
+		marginTop: 4,
 	},
 	typeToggle: {
 		flexDirection: 'row',
