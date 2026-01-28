@@ -20,36 +20,60 @@ import {
   getInitialNotificationListener,
 } from '@services/firebaseService';
 
+import {
+  requestNotificationPermission,
+  createDefaultChannel,
+} from '@services/notifications';
+
 /* ---------------- ROOT APP ---------------- */
 export default function App() {
   useEffect(() => {
-  async function initFCM() {
-    const enabled = await requestUserPermission();
-    if (enabled) {
-      const token = await getFcmToken();
-      console.log('Device FCM Token:', token);
+    async function initNotifications() {
+      try {
+        // Request local notification permission
+        const permission = await requestNotificationPermission();
+        console.log('[App] Local notification permission:', permission);
+
+        // Create the reminders channel
+        await createDefaultChannel();
+      } catch (error) {
+        console.error('[App] Failed to initialize notifications:', error);
+      }
     }
-  }
 
-  initFCM();
-
-  const unsubscribeMessage = onMessageListener();
-
-  const unsubscribeOpen = onNotificationOpenedAppListener(remoteMessage => {
-    console.log('Opened from background:', remoteMessage);
-  });
-
-  getInitialNotificationListener().then(remoteMessage => {
-    if (remoteMessage) {
-      console.log('Opened from quit state:', remoteMessage);
+    async function initFCM() {
+      try {
+        const enabled = await requestUserPermission();
+        if (enabled) {
+          const token = await getFcmToken();
+          console.log('Device FCM Token:', token);
+        }
+      } catch (error) {
+        console.error('[App] FCM initialization error:', error);
+      }
     }
-  });
 
-  return () => {
-    unsubscribeMessage();
-    unsubscribeOpen();
-  };
-}, []);
+    // Initialize both local and remote notifications
+    initNotifications();
+    initFCM();
+
+    const unsubscribeMessage = onMessageListener();
+
+    const unsubscribeOpen = onNotificationOpenedAppListener(remoteMessage => {
+      console.log('Opened from background:', remoteMessage);
+    });
+
+    getInitialNotificationListener().then(remoteMessage => {
+      if (remoteMessage) {
+        console.log('Opened from quit state:', remoteMessage);
+      }
+    });
+
+    return () => {
+      unsubscribeMessage();
+      unsubscribeOpen();
+    };
+  }, []);
 
 
   return (

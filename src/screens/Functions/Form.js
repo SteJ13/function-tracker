@@ -14,6 +14,7 @@ import { Input, Select, DatePicker, TimePicker, StatusSelector, RHFLocationInput
 import { getFunctionById } from './api';
 import useFunctionActions from './useFunctionActions';
 import { getCategories } from '@screens/FunctionCategories/api';
+import { useNetwork } from '@context/NetworkContext';
 
 const STATUS_OPTIONS = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -21,10 +22,19 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const REMINDER_OPTIONS = [
+  { value: 10, label: '10 minutes before' },
+  { value: 30, label: '30 minutes before' },
+  { value: 60, label: '1 hour before' },
+  { value: 1440, label: '1 day before' },
+];
+
 export default function FunctionFormScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
+  const initialFunctionType = route?.params?.function_type || 'MY_FUNCTION';
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const { isOnline } = useNetwork();
   const { createFunction, updateFunction } = useFunctionActions();
 
   // Fetch categories on mount
@@ -63,6 +73,8 @@ export default function FunctionFormScreen({ navigation, route }) {
       location_id: null,
       notes: '',
       status: 'upcoming',
+      reminder_minutes: 1440,
+      function_type: initialFunctionType,
     },
   });
 
@@ -86,6 +98,8 @@ export default function FunctionFormScreen({ navigation, route }) {
           location_id: existing.location?.id || null,
           notes: existing.notes || '',
           status: existing.status || 'upcoming',
+          reminder_minutes: existing.reminder_minutes || 1440,
+          function_type: existing.function_type || initialFunctionType,
         });
       } catch (error) {
         Toast.show({ type: 'error', text1: 'Failed to load function' });
@@ -102,6 +116,14 @@ export default function FunctionFormScreen({ navigation, route }) {
 
   const onSubmit = useCallback(
     async values => {
+      if (!isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Add, Edit and Delete are disabled while offline.',
+        });
+        return;
+      }
+
       try {
         if (functionId) {
           await updateFunction(functionId, {
@@ -112,6 +134,8 @@ export default function FunctionFormScreen({ navigation, route }) {
             location_id: values.location_id || null,
             notes: values.notes?.trim() || '',
             status: values.status,
+            reminder_minutes: values.reminder_minutes,
+            function_type: values.function_type || initialFunctionType,
           });
 
           Toast.show({ type: 'success', text1: 'Function updated' });
@@ -124,6 +148,8 @@ export default function FunctionFormScreen({ navigation, route }) {
             location_id: values.location_id || null,
             notes: values.notes?.trim() || '',
             status: values.status,
+            reminder_minutes: values.reminder_minutes,
+            function_type: values.function_type || initialFunctionType,
           });
 
           Toast.show({ type: 'success', text1: 'Function added' });
@@ -138,7 +164,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         });
       }
     },
-    [functionId, navigation]
+    [functionId, navigation, isOnline, createFunction, updateFunction]
   );
 
   if (loading || categoriesLoading) {
@@ -156,6 +182,14 @@ export default function FunctionFormScreen({ navigation, route }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      {!isOnline && (
+        <View style={styles.offlineWarning}>
+          <Text style={styles.offlineWarningText}>
+            📡 Offline Mode: Add, Edit and Delete are disabled
+          </Text>
+        </View>
+      )}
+
       <Input
         name="title"
         label="Title"
@@ -163,6 +197,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         required
         rules={{ required: 'Title is required' }}
         placeholder="Enter title"
+        editable={isOnline}
       />
 
       <Select
@@ -172,6 +207,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         options={categories.map(cat => ({ label: cat.name, value: cat.id }))}
         rules={{ required: 'Category is required' }}
         placeholder="Select category"
+        editable={isOnline}
       />
 
       <DatePicker
@@ -180,6 +216,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         control={control}
         rules={{ required: 'Date is required' }}
         placeholder="YYYY-MM-DD"
+        editable={isOnline}
       />
 
       <TimePicker
@@ -188,6 +225,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         control={control}
         rules={{ required: 'Time is required' }}
         placeholder="HH:mm"
+        editable={isOnline}
       />
 
       <RHFLocationInput
@@ -195,6 +233,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         label="Location"
         control={control}
         placeholder="Search or add location"
+        editable={isOnline}
       />
 
       <Input
@@ -202,6 +241,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         label="Notes"
         control={control}
         placeholder="Notes (voice supported)"
+        editable={isOnline}
       />
 
       <StatusSelector
@@ -209,6 +249,16 @@ export default function FunctionFormScreen({ navigation, route }) {
         label="Status"
         control={control}
         options={STATUS_OPTIONS}
+        editable={isOnline}
+      />
+
+      <Select
+        name="reminder_minutes"
+        label="Reminder"
+        control={control}
+        options={REMINDER_OPTIONS}
+        placeholder="Select reminder time"
+        editable={isOnline}
       />
 
       <View style={styles.actions}>
@@ -221,9 +271,9 @@ export default function FunctionFormScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, styles.save]}
+          style={[styles.button, styles.save, !isOnline && styles.buttonDisabled]}
           onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isOnline}
         >
           <Text style={styles.btnText}>{isSubmitting ? 'Saving...' : 'Save'}</Text>
         </TouchableOpacity>
@@ -241,6 +291,19 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  offlineWarning: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  offlineWarningText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -251,6 +314,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     marginLeft: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   cancel: {
     backgroundColor: '#9E9E9E',

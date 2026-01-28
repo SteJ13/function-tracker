@@ -9,7 +9,6 @@ import {
   Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import NetInfo from '@react-native-community/netinfo';
 import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
@@ -18,34 +17,23 @@ import { getFunctions } from './api';
 import { getCategories } from '../FunctionCategories/api';
 import { formatDisplayDate, formatDisplayTime } from '@utils';
 import { loadFunctionsCache } from './cache';
-import { addToQueue } from '@services/offlineQueue';
 import useFunctionActions from './useFunctionActions';
+import { useNetwork } from '@context/NetworkContext';
 
 const PAGE_SIZE = 10;
-
-// Simple temp id generator for offline items and queue entries
-const generateTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-// Enqueue an offline action for later sync
-const enqueueOfflineAction = async (action, payload) => {
-  const queueItem = {
-    id: generateTempId(),
-    action,
-    table: 'functions',
-    payload,
-    timestamp: Date.now(),
-  };
-
-  await addToQueue(queueItem);
-};
+const FUNCTION_TABS = [
+  { key: 'MY_FUNCTION', label: 'My Functions' },
+  { key: 'INVITATION', label: 'Invitations' },
+];
 
 export default function FunctionListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
   const [refreshKey, setRefreshKey] = useState('functions');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState('MY_FUNCTION');
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [isOnline, setIsOnline] = useState(true);
+  const { isOnline } = useNetwork();
   const [advancedFilters, setAdvancedFilters] = useState({
     category_id: undefined,
     location_id: undefined,
@@ -55,58 +43,26 @@ export default function FunctionListScreen({ navigation, route }) {
   });
   const { deleteFunction: deleteFunctionAction } = useFunctionActions();
 
-  // Optimistic helpers for offline actions
-  const applyOptimisticCreate = useCallback(async newItem => {
-    const tempId = newItem.id || generateTempId();
-    const pendingItem = { ...newItem, id: tempId, _pending: true };
-
-    setData(prev => [pendingItem, ...prev]);
-
-    await enqueueOfflineAction('create', pendingItem);
-  }, []);
-
-  const applyOptimisticUpdate = useCallback(async updatedItem => {
-    if (!updatedItem?.id) return;
-
-    setData(prev =>
-      prev.map(f =>
-        f.id === updatedItem.id ? { ...f, ...updatedItem, _pending: true } : f
-      )
-    );
-
-    await enqueueOfflineAction('update', updatedItem);
-  }, []);
-
-  // Setup network state listener
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOnline(state.isConnected ?? true);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   // Load categories and locations on mount
   useEffect(() => {
     loadFilterOptions();
   }, []);
 
-  // Apply pending offline actions passed via navigation params (if any)
-  useEffect(() => {
-    if (!route?.params) return;
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      const [categoriesRes] = await Promise.all([
+        getCategories({ page: 1, limit: 100 }),
+      ]);
 
-    const { offlineCreate, offlineUpdate } = route.params;
-
-    if (offlineCreate && !isOnline) {
-      applyOptimisticCreate(offlineCreate);
-      navigation.setParams({ ...route.params, offlineCreate: undefined });
+      const categoryOptions = categoriesRes.data.map(cat => ({
+        value: cat.id,
+        label: cat.name,
+      }));
+      setCategories(categoryOptions);
+    } catch (error) {
+      console.error('Failed to load filter options:', error);
     }
-
-    if (offlineUpdate && !isOnline) {
-      applyOptimisticUpdate(offlineUpdate);
-      navigation.setParams({ ...route.params, offlineUpdate: undefined });
-    }
-  }, [route?.params, isOnline, applyOptimisticCreate, applyOptimisticUpdate, navigation]);
+  }, []);
 
   // Load offline cache when going offline
   useEffect(() => {
@@ -128,22 +84,6 @@ export default function FunctionListScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error loading offline cache:', error);
-    }
-  }, []);
-
-  const loadFilterOptions = useCallback(async () => {
-    try {
-      const [categoriesRes] = await Promise.all([
-        getCategories({ page: 1, limit: 100 }),
-      ]);
-
-      const categoryOptions = categoriesRes.data.map(cat => ({
-        value: cat.id,
-        label: cat.name,
-      }));
-      setCategories(categoryOptions);
-    } catch (error) {
-      console.error('Failed to load filter options:', error);
     }
   }, []);
 
@@ -196,6 +136,7 @@ export default function FunctionListScreen({ navigation, route }) {
         status: advancedFilters.status?.length > 0 ? advancedFilters.status : undefined,
         from_date: advancedFilters.from_date,
         to_date: advancedFilters.to_date,
+        function_type: activeTab,
       },
     });
 
@@ -207,7 +148,7 @@ export default function FunctionListScreen({ navigation, route }) {
         hasMore: response.meta.hasMore,
       },
     };
-  }, [advancedFilters]);
+  }, [advancedFilters, activeTab]);
 
   // Handle filter apply
   const handleFilterApply = useCallback((appliedFilters) => {
@@ -236,6 +177,11 @@ export default function FunctionListScreen({ navigation, route }) {
     setData([]);
   }, [advancedFilters]);
 
+  useEffect(() => {
+    setData([]);
+    setRefreshKey(`functions-${activeTab}-${Date.now()}`);
+  }, [activeTab]);
+
   // Handle new data from PaginatedList
   const handleDataLoaded = useCallback((newItems, meta) => {
     setData(prevData => {
@@ -254,9 +200,17 @@ export default function FunctionListScreen({ navigation, route }) {
     });
   }, []);
 
-  // Delete function
+  // Delete function - disabled when offline
   const handleDelete = useCallback(
     item => {
+      if (!isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Add, Edit and Delete are disabled while offline.',
+        });
+        return;
+      }
+
       Alert.alert(
         'Delete Function',
         `Are you sure you want to delete "${item.title}"?`,
@@ -293,7 +247,7 @@ export default function FunctionListScreen({ navigation, route }) {
         ]
       );
     },
-    [deleteFunctionAction]
+    [deleteFunctionAction, isOnline]
   );
 
   // Navigate to detail screen
@@ -307,9 +261,16 @@ export default function FunctionListScreen({ navigation, route }) {
   // Navigate to edit screen
   const handleEdit = useCallback(
     item => {
+      if (!isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Add, Edit and Delete are disabled while offline.',
+        });
+        return;
+      }
       navigation.navigate('FunctionForm', { functionId: item.id });
     },
-    [navigation]
+    [navigation, isOnline]
   );
 
   // Render list item
@@ -351,15 +312,25 @@ export default function FunctionListScreen({ navigation, route }) {
 
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.edit]}
+              style={[
+                styles.actionBtn,
+                styles.edit,
+                isOnline ? {} : styles.actionBtnDisabled,
+              ]}
               onPress={() => handleEdit(item)}
+              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtn, styles.delete]}
+              style={[
+                styles.actionBtn,
+                styles.delete,
+                isOnline ? {} : styles.actionBtnDisabled,
+              ]}
               onPress={() => handleDelete(item)}
+              disabled={!isOnline}
             >
               <Text style={styles.actionText}>Delete</Text>
             </TouchableOpacity>
@@ -367,7 +338,7 @@ export default function FunctionListScreen({ navigation, route }) {
         </TouchableOpacity>
       );
     },
-    [handlePress, handleEdit, handleDelete]
+    [handlePress, handleEdit, handleDelete, isOnline]
   );
 
   // Check if any filters are active
@@ -429,8 +400,28 @@ export default function FunctionListScreen({ navigation, route }) {
     [hasActiveFilters, handleFilterClear, isOnline, data.length]
   );
 
+  const fabLabel = activeTab === 'MY_FUNCTION' ? 'Add Function' : 'Add Invitation';
+  const functionTypeParam = activeTab === 'MY_FUNCTION' ? 'MY_FUNCTION' : 'INVITATION';
+
   return (
     <View style={styles.container}>
+      <View style={styles.tabsContainer}>
+        {FUNCTION_TABS.map(tab => {
+          const isActive = tab.key === activeTab;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tabButton, isActive && styles.tabButtonActive]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <PaginatedList
         key={refreshKey}
         data={data}
@@ -473,12 +464,23 @@ export default function FunctionListScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* FAB: Add new function */}
+      {/* FAB: Add new function - disabled when offline */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('FunctionForm')}
+        style={[styles.fab, !isOnline && styles.fabDisabled]}
+        onPress={() => {
+          if (!isOnline) {
+            Toast.show({
+              type: 'info',
+              text1: 'Add, Edit and Delete are disabled while offline.',
+            });
+          } else {
+            navigation.navigate('FunctionForm', { function_type: functionTypeParam });
+          }
+        }}
+        disabled={!isOnline}
       >
-        <Text style={styles.fabText}>＋</Text>
+        <Text style={styles.fabIcon}>＋</Text>
+        <Text style={styles.fabLabel}>{fabLabel}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -537,6 +539,34 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 80,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  tabButtonActive: {
+    backgroundColor: '#1976D2',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -654,21 +684,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    paddingHorizontal: 16,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#1976D2',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
+    flexDirection: 'row',
+    gap: 8,
   },
   fabDisabled: {
     opacity: 0.5,
   },
-  fabText: {
+  fabIcon: {
     color: '#fff',
-    fontSize: 28,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  fabLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   offlineIndicator: {
     position: 'absolute',

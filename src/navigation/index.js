@@ -16,10 +16,14 @@ import HomeScreen from '@screens/HomeScreen';
 import FunctionListScreen from '@screens/Functions';
 import FunctionFormScreen from '@screens/Functions/Form';
 import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
+import ContributionsListScreen from '@screens/Contributions/ListScreen';
+import ContributionsAddScreen from '@screens/Contributions/AddScreen';
+import ContributionsEditScreen from '@screens/Contributions/EditScreen';
 import FunctionCategoriesScreen from '@screens/FunctionCategories';
 import FunctionCategoryForm from '@screens/FunctionCategories/Form';
 import NotificationsScreen from '@screens/Notifications/NotificationsScreen';
 import NotificationDetailScreen from '@screens/Notifications/NotificationDetailScreen';
+import CalendarScreen from '@screens/Calendar';
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +65,26 @@ function AppStack() {
         options={{ title: 'Function Details' }}
       />
       <Stack.Screen
+        name="AddContribution"
+        component={ContributionsAddScreen}
+        options={{ title: 'Add Contribution' }}
+      />
+      <Stack.Screen
+        name="ContributionsList"
+        component={ContributionsListScreen}
+        options={{ title: 'Contributions' }}
+      />
+      <Stack.Screen
+        name="ContributionsAdd"
+        component={ContributionsAddScreen}
+        options={{ title: 'Add Contribution' }}
+      />
+      <Stack.Screen
+        name="ContributionsEdit"
+        component={ContributionsEditScreen}
+        options={{ title: 'Edit Contribution' }}
+      />
+      <Stack.Screen
         name="FunctionCategories"
         component={FunctionCategoriesScreen}
         options={{ title: 'Function Categories' }}
@@ -79,6 +103,11 @@ function AppStack() {
         name="NotificationDetail"
         component={NotificationDetailScreen}
         options={{ title: 'Notification' }}
+      />
+      <Stack.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{ title: 'Calendar' }}
       />
     </Stack.Navigator>
   );

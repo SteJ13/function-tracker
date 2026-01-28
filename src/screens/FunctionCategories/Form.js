@@ -6,12 +6,14 @@ import Toast from 'react-native-toast-message';
 import Input from '@components/FormInputs/Input';
 import { useLanguage } from '@context/LanguageContext';
 import { useAuth } from '@context/AuthContext';
+import { useNetwork } from '@context/NetworkContext';
 import { addCategory, updateCategory } from './api';
 
 export default function FunctionCategoryForm({ navigation, route }) {
 
     const { translations } = useLanguage();
     const { user } = useAuth();
+    const { isOnline } = useNetwork();
 
 
   const editingCategory = route?.params?.category;
@@ -29,6 +31,14 @@ export default function FunctionCategoryForm({ navigation, route }) {
   });
 
   const onSubmit = async data => {
+    if (!isOnline) {
+      Toast.show({
+        type: 'info',
+        text1: 'Add, Edit and Delete are disabled while offline.',
+      });
+      return;
+    }
+
     try {
       const categoryId = editingCategory?.id;
       
@@ -55,6 +65,14 @@ export default function FunctionCategoryForm({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {!isOnline && (
+        <View style={styles.offlineWarning}>
+          <Text style={styles.offlineWarningText}>
+            📡 Offline Mode: Add, Edit and Delete are disabled
+          </Text>
+        </View>
+      )}
+
       <Input
         name="name"
         label={translations.name}
@@ -62,6 +80,7 @@ export default function FunctionCategoryForm({ navigation, route }) {
         required
         rules={{ required: 'Name is required' }}
         placeholder="Enter category name"
+        editable={isOnline}
       />
 
       <Input
@@ -71,6 +90,7 @@ export default function FunctionCategoryForm({ navigation, route }) {
         required
         rules={{ required: 'Tamil name is required' }}
         placeholder="தமிழ் பெயர்"
+        editable={isOnline}
       />
 
       <Input
@@ -79,6 +99,7 @@ export default function FunctionCategoryForm({ navigation, route }) {
         control={control}
         placeholder="Description"
         multiline
+        editable={isOnline}
       />
 
       <View style={styles.actions}>
@@ -91,9 +112,9 @@ export default function FunctionCategoryForm({ navigation, route }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, styles.save]}
+          style={[styles.button, styles.save, !isOnline && styles.buttonDisabled]}
           onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isOnline}
         >
           <Text style={styles.btnText}>
             {isSubmitting ? 'Saving...' : translations.save}
@@ -110,6 +131,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F8FA',
     padding: 16,
   },
+  offlineWarning: {
+    backgroundColor: '#FF9800',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  offlineWarningText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -120,6 +154,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     marginLeft: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   cancel: {
     backgroundColor: '#9E9E9E',
@@ -132,3 +169,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

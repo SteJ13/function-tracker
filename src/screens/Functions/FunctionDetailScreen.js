@@ -18,51 +18,54 @@ export default function FunctionDetailScreen({ navigation, route }) {
   const { deleteFunction } = useFunctionActions();
 
   const [functionData, setFunctionData] = useState(null);
-  const [categoryMap, setCategoryMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load function data
+        setLoading(true);
+        setError(null);
+        
+        if (!functionId) {
+          throw new Error('Missing function ID');
+        }
+
+        // Load function data (includes category and location via joins)
         const data = await getFunctionById(functionId);
         if (!data) {
-          Toast.show({ type: 'error', text1: 'Function not found' });
-          navigation.goBack();
-          return;
+          throw new Error('Function not found');
         }
         setFunctionData(data);
-
-        // TODO: Fetch categories from API and build category map
-        const categories = {
-          '1': 'Marriage',
-          '2': 'Birthday',
-          '3': 'Anniversary',
-          '4': 'Celebration',
-          '5': 'Event',
-        };
-        setCategoryMap(categories);
       } catch (error) {
-        Toast.show({ type: 'error', text1: 'Failed to load function' });
-        navigation.goBack();
+        console.error('[FunctionDetail] Load error:', error);
+        setError(error.message || 'Failed to load function');
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Error',
+          text2: error.message || 'Failed to load function'
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    if (functionId) {
-      loadData();
-    } else {
-      Toast.show({ type: 'error', text1: 'Missing function ID' });
-      navigation.goBack();
-    }
-  }, [functionId, navigation]);
+    loadData();
+  }, [functionId]);
 
   const handleEdit = useCallback(() => {
+    if (!functionId) return;
     navigation.navigate('FunctionForm', { functionId });
   }, [functionId, navigation]);
 
+  const handleViewContributions = useCallback(() => {
+    if (!functionId) return;
+    navigation.navigate('ContributionsList', { functionId });
+  }, [functionId, navigation]);
+
   const handleDelete = useCallback(() => {
+    if (!functionData) return;
+    
     Alert.alert(
       'Delete Function',
       `Are you sure you want to delete "${functionData?.title}"?`,
@@ -75,19 +78,24 @@ export default function FunctionDetailScreen({ navigation, route }) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const success = await deleteFunction(functionId);
+            try {
+              const success = await deleteFunction(functionId);
 
-            if (success) {
-              Toast.show({ type: 'success', text1: 'Function deleted' });
-              navigation.goBack();
-            } else {
+              if (success) {
+                Toast.show({ type: 'success', text1: 'Function deleted' });
+                navigation.goBack();
+              } else {
+                Toast.show({ type: 'error', text1: 'Failed to delete function' });
+              }
+            } catch (error) {
+              console.error('[FunctionDetail] Delete error:', error);
               Toast.show({ type: 'error', text1: 'Failed to delete function' });
             }
           },
         },
       ]
     );
-  }, [functionId, functionData?.title, navigation]);
+  }, [functionId, functionData, deleteFunction, navigation]);
 
   if (loading) {
     return (
@@ -98,13 +106,24 @@ export default function FunctionDetailScreen({ navigation, route }) {
     );
   }
 
+  if (error || !functionData) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorText}>{error || 'Function not found'}</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!functionData) {
     return null;
   }
-
-  const getCategoryName = categoryId => {
-    return categoryMap[categoryId] || categoryId;
-  };
 
   const getStatusStyle = status => {
     switch (status) {
@@ -119,24 +138,58 @@ export default function FunctionDetailScreen({ navigation, route }) {
     }
   };
 
+  // Format date from YYYY-MM-DD
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch (error) {
+      return dateStr;
+    }
+  };
+
+  // Format time from HH:mm:ss to HH:mm
+  const formatTime = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    return timeStr.substring(0, 5);
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       {/* Header Section */}
       <View style={styles.headerSection}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{functionData.title}</Text>
+          <Text style={styles.title}>{functionData.title || 'Untitled'}</Text>
         </View>
         <View style={[styles.statusBadge, getStatusStyle(functionData.status)]}>
-          <Text style={styles.statusText}>{functionData.status.charAt(0).toUpperCase() + functionData.status.slice(1)}</Text>
+          <Text style={styles.statusText}>
+            {functionData.status ? functionData.status.charAt(0).toUpperCase() + functionData.status.slice(1) : 'Unknown'}
+          </Text>
         </View>
       </View>
 
       {/* Date & Time Section */}
       <View style={styles.card}>
         <View style={styles.cardRow}>
-          <Text style={styles.cardLabel}>Date & Time</Text>
+          <Text style={styles.cardLabel}>Date</Text>
           <Text style={styles.cardValue}>
-            {functionData.date} at {functionData.time}
+            {formatDate(functionData.function_date)}
+          </Text>
+        </View>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>Time</Text>
+          <Text style={styles.cardValue}>
+            {formatTime(functionData.function_time)}
           </Text>
         </View>
       </View>
@@ -145,7 +198,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
       <View style={styles.card}>
         <View style={styles.cardRow}>
           <Text style={styles.cardLabel}>Category</Text>
-          <Text style={styles.cardValue}>{getCategoryName(functionData.categoryId)}</Text>
+          <Text style={styles.cardValue}>{functionData.category?.name || 'Unknown Category'}</Text>
         </View>
       </View>
 
@@ -154,7 +207,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
         <View style={styles.card}>
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Location</Text>
-            <Text style={styles.cardValue}>{functionData.location}</Text>
+            <Text style={styles.cardValue}>{functionData.location.name || 'Unknown Location'}</Text>
           </View>
         </View>
       ) : null}
@@ -170,20 +223,28 @@ export default function FunctionDetailScreen({ navigation, route }) {
       {/* Metadata Section */}
       <View style={styles.metadataSection}>
         <Text style={styles.metaText}>
-          Created: {new Date(functionData.createdAt).toLocaleDateString('en-US', {
+          Created: {new Date(functionData.created_at).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
           })}
         </Text>
         <Text style={styles.metaText}>
-          Updated: {new Date(functionData.updatedAt).toLocaleDateString('en-US', {
+          Updated: {new Date(functionData.updated_at).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
           })}
         </Text>
       </View>
+
+      {/* View Contributions Button */}
+      <TouchableOpacity
+        style={[styles.button, styles.viewContributionsButton]}
+        onPress={handleViewContributions}
+      >
+        <Text style={styles.buttonText}>View Contributions</Text>
+      </TouchableOpacity>
 
       {/* Action Buttons */}
       <View style={styles.actions}>
@@ -218,6 +279,34 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F6F8FA',
+    padding: 20,
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  backButton: {
+    backgroundColor: '#1976D2',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   /* Header Section */
@@ -308,6 +397,13 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 6,
     fontWeight: '500',
+  },
+
+  /* View Contributions Button */
+  viewContributionsButton: {
+    backgroundColor: '#1976D2',
+    marginBottom: 24,
+    paddingVertical: 14,
   },
 
   /* Actions */

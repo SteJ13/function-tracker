@@ -19,10 +19,13 @@ export default function Input({
   required = false,
   handleChange,
   password = false,
+  type,
   voice = true, // 👈 default enabled
 }) {
   const [hidePassword, setHidePassword] = useState(password);
   const [listening, setListening] = useState(false);
+
+  const keyboardType = type === 'number' ? 'numeric' : 'default';
 
   const handleVoiceInput = async (onChange) => {
     try {
@@ -69,6 +72,8 @@ export default function Input({
               style={styles.input}
               secureTextEntry={hidePassword}
               placeholder={label}
+              keyboardType={keyboardType}
+              inputMode={type === 'number' ? 'numeric' : 'text'}
             />
 
             {/* PASSWORD EYE ICON */}

@@ -112,7 +112,7 @@ Supabase Publishable Key: sb_publishable_tVqRzJX6yLLxavXudRUXQg_KELXugsG
 
 Take build:
 cd android
-gradlew assembleRelease
+.\gradlew assembleRelease
 
 
 “Secure api.js with user_id”

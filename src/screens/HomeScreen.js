@@ -66,6 +66,12 @@ console.log(user);
       onPress: () => navigation.navigate('Functions'),
     },
     {
+      id: 'calendar',
+      label: 'Calendar',
+      icon: '📅',
+      onPress: () => navigation.navigate('Calendar'),
+    },
+    {
       id: 'notifications',
       label: translations.notifications,
       icon: '🔔',

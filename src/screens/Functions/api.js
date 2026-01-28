@@ -26,7 +26,7 @@ export async function getFunctions({
 
   let query = supabase
     .from('functions')
-    .select('*, locations(id, name)', { count: 'exact' })
+    .select('*, locations(id, name), categories(id, name)', { count: 'exact' })
     .order('function_date', { ascending: true })
     .range(from, to);
 
@@ -48,6 +48,10 @@ export async function getFunctions({
     query = query.in('status', filters.status);
   }
 
+  if (filters.function_type) {
+    query = query.eq('function_type', filters.function_type);
+  }
+
   if (filters.from_date) {
     query = query.gte('function_date', filters.from_date);
   }
@@ -62,11 +66,13 @@ export async function getFunctions({
     throw error;
   }
 
-  // Transform location_id to location object
+  // Transform location_id to location object and category_id to category object
   const transformedData = data?.map(item => ({
     ...item,
     location: item.locations || null,
     locations: undefined,
+    category: item.categories || null,
+    categories: undefined,
   })) || [];
 
   // Cache successful response on every call (including empty arrays)
@@ -87,19 +93,22 @@ export async function getFunctionById(id) {
 
   const { data, error } = await supabase
     .from('functions')
-    .select('*, locations(id, name)')
+    .select('*, locations(id, name), categories(id, name)')
     .eq('id', id)
     .single();
+  console.log('data: ', data);
 
   if (error) {
     throw error;
   }
 
-  // Transform location_id to location object
+  // Transform locations to location and categories to category
   return {
     ...data,
     location: data.locations || null,
+    category: data.categories || null,
     locations: undefined,
+    categories: undefined,
   };
 }
 
@@ -108,10 +117,10 @@ export async function addFunction(functionData, userId) {
 
   const data = await db.insert('functions', functionData, userId);
 
-  // Fetch with location data
+  // Fetch with location and category data
   const { data: result, error } = await supabase
     .from('functions')
-    .select('*, locations(id, name)')
+    .select('*, locations(id, name), categories(id, name)')
     .eq('id', data.id)
     .single();
 
@@ -119,11 +128,13 @@ export async function addFunction(functionData, userId) {
     throw error;
   }
 
-  // Transform location_id to location object
+  // Transform location_id to location object and category_id to category object
   return {
     ...result,
     location: result.locations || null,
     locations: undefined,
+    category: result.categories || null,
+    categories: undefined,
   };
 }
 
@@ -132,10 +143,10 @@ export async function updateFunction(id, updates, userId) {
 
   await db.update('functions', id, updates, userId);
 
-  // Fetch with location data
+  // Fetch with location and category data
   const { data, error } = await supabase
     .from('functions')
-    .select('*, locations(id, name)')
+    .select('*, locations(id, name), categories(id, name)')
     .eq('id', id)
     .single();
 
@@ -143,11 +154,13 @@ export async function updateFunction(id, updates, userId) {
     throw error;
   }
 
-  // Transform location_id to location object
+  // Transform locations to location and categories to category
   return {
     ...data,
     location: data.locations || null,
+    category: data.categories || null,
     locations: undefined,
+    categories: undefined,
   };
 }
 

@@ -1,7 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@services/supabaseClient';
 
 export const AuthContext = createContext(null);
+
+/**
+ * Clear all offline cache on logout
+ */
+async function clearOfflineCache() {
+  try {
+    // Clear function cache
+    await AsyncStorage.removeItem('functions_cache');
+    // Clear categories cache
+    await AsyncStorage.removeItem('categories_cache');
+    // Clear any other offline data
+    await AsyncStorage.removeItem('offline_queue');
+    console.log('[AuthContext] Offline cache cleared on logout');
+  } catch (err) {
+    console.error('[AuthContext] Failed to clear offline cache:', err);
+  }
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -62,6 +80,10 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+
+    // Clear offline cache on logout
+    await clearOfflineCache();
+
     setSession(null);
     setUser(null);
   };

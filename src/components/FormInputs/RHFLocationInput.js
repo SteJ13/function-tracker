@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Keyboard,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Controller } from 'react-hook-form';
 import { supabase } from '@services/supabaseClient';
@@ -28,6 +29,11 @@ export default function RHFLocationInput({
   const [loading, setLoading] = useState(false);
   const [allLocations, setAllLocations] = useState([]);
   const debounceTimer = useRef(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newLocationName, setNewLocationName] = useState('');
+  const [newLocationTamilName, setNewLocationTamilName] = useState('');
+  const [addingLocation, setAddingLocation] = useState(false);
+  const pendingOnChangeRef = useRef(null);
 
   // Load all locations on mount for offline caching
   useEffect(() => {
@@ -48,7 +54,7 @@ export default function RHFLocationInput({
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, tamil_name')
         .order('name', { ascending: true });
 
       if (error) {
@@ -89,7 +95,7 @@ export default function RHFLocationInput({
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, tamil_name')
         .ilike('name', `%${searchTerm}%`)
         .limit(10);
 
@@ -144,36 +150,53 @@ export default function RHFLocationInput({
       if (!text || text.trim().length === 0) return;
       if (!isOnline) return; // Block when offline
 
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('locations')
-          .insert({ name: text.trim() })
-          .select('id, name')
-          .single();
-
-        if (error) {
-          console.error('Failed to add location:', error);
-          return;
-        }
-
-        if (data) {
-          setInputText(data.name);
-          onChange(data.id);
-          setShowSuggestions(false);
-          setSuggestions([]);
-          Keyboard.dismiss();
-          // Reload all locations to update cache
-          loadAllLocations();
-        }
-      } catch (err) {
-        console.error('Add location exception:', err);
-      } finally {
-        setLoading(false);
-      }
+      // Open modal instead of directly adding
+      setNewLocationName(text.trim());
+      setNewLocationTamilName('');
+      pendingOnChangeRef.current = onChange;
+      setShowAddModal(true);
+      setShowSuggestions(false);
     },
-    [isOnline, loadAllLocations]
+    [isOnline]
   );
+
+  const handleConfirmAddLocation = useCallback(async () => {
+    if (!newLocationName.trim()) return;
+    
+    setAddingLocation(true);
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .insert({ 
+          name: newLocationName.trim(),
+          tamil_name: newLocationTamilName.trim() || null
+        })
+        .select('id, name, tamil_name')
+        .single();
+
+      if (error) {
+        console.error('Failed to add location:', error);
+        return;
+      }
+
+      if (data && pendingOnChangeRef.current) {
+        setInputText(data.name);
+        pendingOnChangeRef.current(data.id);
+        Keyboard.dismiss();
+        // Reload all locations to update cache
+        loadAllLocations();
+        // Close modal and reset
+        setShowAddModal(false);
+        setNewLocationName('');
+        setNewLocationTamilName('');
+        pendingOnChangeRef.current = null;
+      }
+    } catch (err) {
+      console.error('Add location exception:', err);
+    } finally {
+      setAddingLocation(false);
+    }
+  }, [newLocationName, newLocationTamilName, loadAllLocations]);
 
   const handleBlur = useCallback(() => {
     // Delay to allow suggestion press to register
@@ -203,7 +226,7 @@ export default function RHFLocationInput({
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('name')
+        .select('name, tamil_name')
         .eq('id', locationId)
         .single();
 
@@ -256,6 +279,17 @@ export default function RHFLocationInput({
 
             {error && <Text style={styles.error}>{error.message}</Text>}
 
+            <AddLocationModal
+              visible={showAddModal}
+              onClose={() => setShowAddModal(false)}
+              name={newLocationName}
+              tamilName={newLocationTamilName}
+              onNameChange={setNewLocationName}
+              onTamilNameChange={setNewLocationTamilName}
+              onAdd={handleConfirmAddLocation}
+              adding={addingLocation}
+            />
+
             {/* Suggestions Overlay */}
             {showSuggestions && (inputText.trim().length > 0 || loading) && (
               <View style={styles.suggestionsOverlay}>
@@ -304,6 +338,64 @@ export default function RHFLocationInput({
   );
 }
 
+const AddLocationModal = ({ visible, onClose, name, tamilName, onNameChange, onTamilNameChange, onAdd, adding }) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <TouchableOpacity 
+      style={styles.modalOverlay} 
+      activeOpacity={1} 
+      onPress={onClose}
+    >
+      <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Add New Location</Text>
+          
+          <Text style={styles.modalLabel}>Name (English)</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={name}
+            onChangeText={onNameChange}
+            placeholder="Enter location name"
+            autoFocus
+          />
+          
+          <Text style={styles.modalLabel}>தமிழ் பெயர் (Tamil Name)</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={tamilName}
+            onChangeText={onTamilNameChange}
+            placeholder="Enter Tamil name"
+          />
+          
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={onClose}
+              disabled={adding}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.addButton]} 
+              onPress={onAdd}
+              disabled={adding || !name.trim()}
+            >
+              <Text style={styles.addButtonText}>
+                {adding ? 'Adding...' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </TouchableOpacity>
+  </Modal>
+);
+
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
@@ -314,6 +406,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#000',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 24,
+    gap: 12,
+  },
+  modalButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  addButton: {
+    backgroundColor: '#1976D2',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   inputWrapper: {
     flexDirection: 'row',
