@@ -28,6 +28,7 @@ import FunctionCategoryForm from '@screens/FunctionCategories/Form';
 import NotificationsScreen from '@screens/Notifications/NotificationsScreen';
 import NotificationDetailScreen from '@screens/Notifications/NotificationDetailScreen';
 import CalendarScreen from '@screens/Calendar';
+import AreaCalculatorScreen from '@screens/AreaCalculatorScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,6 +38,11 @@ function AuthStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen
+        name="AreaCalculator"
+        component={AreaCalculatorScreen}
+        options={{ title: 'Area Calculator' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -134,6 +140,11 @@ function AppStack() {
         options={({ route }) => ({
           title: route?.params?.location ? 'Edit Location' : 'Add Location',
         })}
+      />
+      <Stack.Screen
+        name="AreaCalculator"
+        component={AreaCalculatorScreen}
+        options={{ title: 'Area Calculator' }}
       />
     </Stack.Navigator>
   );

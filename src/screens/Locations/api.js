@@ -59,7 +59,7 @@ export async function addLocation({ name, tamil_name }) {
       tamil_name: tamil_name?.trim() || null,
     })
     .select()
-    .single();
+    .single(); // .single() is correct here for insert returning one row
 
   if (error) {
     throw error;
@@ -86,14 +86,13 @@ export async function updateLocation(id, { name, tamil_name }) {
       tamil_name: tamil_name?.trim() || null,
     })
     .eq('id', id)
-    .select()
-    .single();
+    .select(); // No .single() for update
 
   if (error) {
-    throw error;
+    return { success: false, error };
   }
 
-  return data;
+  return { success: true, data };
 }
 
 export async function deleteLocation(id) {
@@ -108,24 +107,29 @@ export async function deleteLocation(id) {
     .from('contributions')
     .select('id', { count: 'exact' })
     .eq('place_id', id);
+  console.log('[deleteLocation] contributions check:', { contributions, checkError });
 
   if (checkError) {
+    console.error('[deleteLocation] contributions check error:', checkError);
     throw checkError;
   }
 
   if (contributions && contributions.length > 0) {
+    console.warn('[deleteLocation] Location in use by contributions:', contributions);
     throw new Error(
       'Cannot delete this location because it is being used by one or more contributions. Please update or delete those contributions first.'
     );
   }
 
-  const { error } = await supabase
+  const { error: deleteError, data: deleteData } = await supabase
     .from('locations')
     .delete()
     .eq('id', id);
+  console.log('[deleteLocation] delete result:', { deleteError, deleteData });
 
-  if (error) {
-    throw error;
+  if (deleteError) {
+    console.error('[deleteLocation] delete error:', deleteError);
+    throw deleteError;
   }
 
   return true;

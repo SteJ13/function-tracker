@@ -35,14 +35,23 @@ export default function LocationAddEditScreen({ navigation, route }) {
         setSubmitting(true);
 
         if (isEdit) {
-          await updateLocation(location.id, {
+          const result = await updateLocation(location.id, {
             name: values.name,
             tamil_name: values.tamil_name,
           });
-          Toast.show({
-            type: 'success',
-            text1: 'Location updated',
-          });
+          if (result.success) {
+            Toast.show({
+              type: 'success',
+              text1: 'Location updated',
+            });
+            navigation.goBack();
+            // Optionally trigger refresh here, e.g. via params or context
+            if (route?.params?.onRefresh) {
+              route.params.onRefresh();
+            }
+          } else {
+            throw result.error;
+          }
         } else {
           await addLocation({
             name: values.name,
@@ -52,9 +61,11 @@ export default function LocationAddEditScreen({ navigation, route }) {
             type: 'success',
             text1: 'Location added',
           });
+          navigation.goBack();
+          if (route?.params?.onRefresh) {
+            route.params.onRefresh();
+          }
         }
-
-        navigation.goBack();
       } catch (error) {
         console.error('[Location Save] Error:', error);
         Toast.show({
@@ -66,7 +77,7 @@ export default function LocationAddEditScreen({ navigation, route }) {
         setSubmitting(false);
       }
     },
-    [isEdit, location, navigation]
+    [isEdit, location, navigation, route]
   );
 
   return (
@@ -75,9 +86,7 @@ export default function LocationAddEditScreen({ navigation, route }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>
-        {isEdit ? 'Edit Location' : 'Add Location'}
-      </Text>
+      
 
       <View style={styles.formCard}>
         <Input

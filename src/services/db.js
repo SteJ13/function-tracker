@@ -17,7 +17,7 @@ export async function insert(table, data, userId) {
     .from(table)
     .insert(payload)
     .select()
-    .single();
+    .single(); // .single() is correct for insert returning one row
 
   if (error) {
     throw error;
@@ -44,8 +44,7 @@ export async function update(table, id, data, userId) {
     .from(table)
     .update(payload)
     .eq('id', id)
-    .select()
-    .single();
+    .select(); // No .single() for update
 
   if (error) {
     throw error;

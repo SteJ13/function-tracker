@@ -2,17 +2,23 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { useAuth } from '@context/AuthContext';
 import { useLanguage } from '@context/LanguageContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function HeaderUserMenu() {
   const { user, signOut } = useAuth();
   const { language, toggleLanguage } = useLanguage();
-
+  const navigation = useNavigation();
   const [visible, setVisible] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
     setVisible(false);
     // toast is handled in logout in AuthContext
+  };
+
+  const handleAreaCalculator = () => {
+    setVisible(false);
+    navigation.navigate('AreaCalculator');
   };
 
   if (!user) return null;
@@ -36,11 +42,11 @@ export default function HeaderUserMenu() {
           <View style={styles.menu}>
             <Text style={styles.username}>{displayName}</Text>
             <TouchableOpacity onPress={toggleLanguage} style={{ marginBottom: 10 }}>
-  <Text style={{ fontWeight: 'bold' }}>
-    {language === 'en' ? 'தமிழ்' : 'English'}
-  </Text>
-</TouchableOpacity>
-
+              <Text style={{ fontWeight: 'bold' }}>
+                {language === 'en' ? 'தமிழ்' : 'English'}
+              </Text>
+            </TouchableOpacity>
+            {/* Area Cal removed from header menu, now in HomeScreen */}
             <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>

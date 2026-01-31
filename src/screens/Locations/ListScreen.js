@@ -1,72 +1,52 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
+  FlatList,
   TouchableOpacity,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
-
-import PaginatedList from '@components/PaginatedList';
 import { getLocations, deleteLocation } from './api';
 
-const PAGE_SIZE = 10;
+import EditIcon from '@components/Icons/EditIcon';
+import DeleteIcon from '@components/Icons/DeleteIcon';
+import PlusIcon from '@components/Icons/PlusIcon';
+import SearchIcon from '@components/Icons/SearchIcon';
+import MapMarkerOffIcon from '@components/Icons/MapMarkerOffIcon';
 
-export default function LocationsListScreen({ navigation }) {
-  const [refreshKey, setRefreshKey] = useState('locations');
+export default function LocationListScreen({ navigation }) {
   const [data, setData] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState('');
   const [deletingId, setDeletingId] = useState(null);
-  const searchTimer = React.useRef(null);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const isFocused = useIsFocused();
 
-  const handleSearchChange = useCallback((text) => {
-    setSearchQuery(text);
-
-    if (searchTimer.current) {
-      clearTimeout(searchTimer.current);
+  const fetchData = useCallback(async () => {
+    setRefreshing(true);
+    setLoading(true);
+    try {
+      const res = await getLocations({ search });
+      setData(res.data);
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Failed to load locations' });
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
     }
+  }, [search]);
 
-    searchTimer.current = setTimeout(() => {
-      setDebouncedQuery(text);
-      setData([]);
-      setRefreshKey(`locations-${Date.now()}`);
-    }, 400);
-  }, []);
-
-  const fetchData = useCallback(async ({ page, limit }) => {
-    const response = await getLocations({
-      page,
-      limit,
-      search: debouncedQuery,
-    });
-    return {
-      data: response.data,
-      meta: {
-        page: response.meta.page,
-        total: response.meta.total,
-        hasMore: response.meta.hasMore,
-      },
-    };
-  }, [debouncedQuery]);
-
-  const handleDataLoaded = useCallback((newItems, meta) => {
-    if (meta.page === 1) {
-      setData(newItems);
-    } else {
-      setData(prev => [...prev, ...newItems]);
+  useEffect(() => {
+    if (isFocused) {
+      fetchData();
     }
-  }, []);
-
-  const handleError = useCallback((error) => {
-    Toast.show({
-      type: 'error',
-      text1: 'Failed to load locations',
-      text2: error?.message,
-    });
-  }, []);
+  }, [isFocused, fetchData, refreshKey]);
 
   const handleDelete = useCallback((item) => {
     Alert.alert(
@@ -103,84 +83,76 @@ export default function LocationsListScreen({ navigation }) {
     );
   }, []);
 
-  const renderItem = useCallback(({ item }) => {
-    const tamilName = item.tamil_name ? ` · ${item.tamil_name}` : '';
+  const renderItem = ({ item }) => {
     const isDeleting = deletingId === item.id;
-
     return (
       <View style={styles.card}>
-        <View style={styles.cardContent}>
-          <Text style={styles.locationName}>
-            {item.name}
-            <Text style={styles.tamilName}>{tamilName}</Text>
-          </Text>
+        <View style={styles.locationInfo}>
+          <Text style={styles.locationName}>{item.name}</Text>
+          {item.tamil_name ? (
+            <Text style={styles.tamilName}>{item.tamil_name}</Text>
+          ) : null}
         </View>
-
-        <View style={styles.actions}>
+        <View style={styles.buttonGroup}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() =>
-              navigation.navigate('LocationAddEdit', { location: item })
-            }
+            style={styles.editButton}
+            onPress={() => navigation.navigate('LocationAddEdit', { location: item, onRefresh: fetchData })}
           >
-            <Text style={styles.actionText}>Edit</Text>
+            <EditIcon size={18} color="#fff" />
+            <Text style={styles.buttonText}>Edit</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
+            style={styles.deleteButton}
             onPress={() => handleDelete(item)}
             disabled={isDeleting}
           >
-            <Text style={styles.actionText}>
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Text>
+            <DeleteIcon size={18} color="#fff" />
+            <Text style={styles.buttonText}>{isDeleting ? 'Deleting...' : 'Delete'}</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
-  }, [deletingId, handleDelete, navigation]);
-
-  const EmptyComponent = useMemo(() => () => (
-    <View style={styles.empty}>
-      <Text style={styles.emptyIcon}>📍</Text>
-      <Text style={styles.emptyText}>No locations yet</Text>
-      <Text style={styles.emptySubtext}>
-        {searchQuery
-          ? 'No matches found'
-          : 'Tap + to add your first location'}
-      </Text>
-    </View>
-  ), [searchQuery]);
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
+      <View style={styles.searchBar}>
+        <SearchIcon size={20} color="#888" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search location (English or Tamil)..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={handleSearchChange}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+          placeholderTextColor="#aaa"
         />
       </View>
-
-      <PaginatedList
-        key={refreshKey}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        fetchData={fetchData}
-        onDataLoaded={handleDataLoaded}
-        onError={handleError}
-        pageSize={PAGE_SIZE}
-        EmptyComponent={EmptyComponent}
-      />
-
+      {loading ? (
+        <ActivityIndicator size="large" color="#1976D2" style={{ marginTop: 32 }} />
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          refreshing={refreshing}
+          onRefresh={fetchData}
+          ListEmptyComponent={
+            !refreshing && (
+              <View style={styles.emptyState}>
+                <MapMarkerOffIcon size={48} color="#bbb" style={styles.emptyIcon} />
+                <Text style={styles.emptyText}>No locations found</Text>
+              </View>
+            )
+          }
+          contentContainerStyle={{ paddingBottom: 100 }}
+        />
+      )}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation.navigate('LocationAddEdit')}
+        onPress={() => navigation.navigate('LocationAddEdit', { onRefresh: fetchData })}
+        activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+</Text>
+        <PlusIcon size={28} color="#fff" style={styles.fabIcon} />
       </TouchableOpacity>
     </View>
   );
@@ -191,120 +163,120 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F6F8FA',
   },
-  searchContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginTop: 24,
+    marginBottom: 8,
+    marginLeft: 16,
   },
-  searchInput: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 12,
+  searchBar: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
+    margin: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
   },
-  cardContent: {
+  searchIcon: {
+    marginRight: 8,
+    color: '#888',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locationInfo: {
     flex: 1,
   },
   locationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
   },
   tamilName: {
     fontSize: 14,
-    fontWeight: '400',
-    color: '#666',
+    color: '#888',
+    marginTop: 2,
   },
-  actions: {
+  buttonGroup: {
     flexDirection: 'row',
     gap: 8,
   },
-  actionButton: {
+  editButton: {
+    backgroundColor: '#1976D2',
+    borderRadius: 8,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    minWidth: 70,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  editButton: {
-    backgroundColor: '#E3F2FD',
-    borderWidth: 1,
-    borderColor: '#1976D2',
-  },
   deleteButton: {
-    backgroundColor: '#FFEBEE',
-    borderWidth: 1,
-    borderColor: '#C62828',
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  deleteButtonDisabled: {
-    opacity: 0.6,
-  },
-  actionText: {
-    fontSize: 12,
+  buttonText: {
+    color: '#fff',
     fontWeight: '600',
-    color: '#333',
+    marginLeft: 4,
   },
   fab: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    right: 24,
+    bottom: 32,
+    backgroundColor: '#1976D2',
+    borderRadius: 28,
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1976D2',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: '#1976D2',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  fabText: {
-    fontSize: 28,
+  fabIcon: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 28,
   },
-  empty: {
+  emptyState: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    justifyContent: 'center',
+    marginTop: 48,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 48,
+    color: '#bbb',
+    marginBottom: 12,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 16,
+    color: '#888',
   },
 });
