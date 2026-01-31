@@ -71,6 +71,13 @@ export default function FunctionListScreen({ navigation, route }) {
     }
   }, [isOnline]);
 
+  useEffect(() => {
+    const initialTab = route?.params?.initialTab;
+    if (initialTab && FUNCTION_TABS.some(tab => tab.key === initialTab)) {
+      setActiveTab(initialTab);
+    }
+  }, [route?.params?.initialTab]);
+
   const loadOfflineData = useCallback(async () => {
     try {
       const cachedData = await loadFunctionsCache();

@@ -12,6 +12,7 @@ import Toast from 'react-native-toast-message';
 
 import { Input, RHFLocationInput } from '@components/FormInputs';
 import { useAuth } from '@context/AuthContext';
+import { useLanguage } from '@context/LanguageContext';
 import { supabase } from '@services/supabaseClient';
 import { markContributionReturned, getSuggestions } from './api';
 
@@ -22,7 +23,9 @@ const CONTRIBUTION_TYPES = [
 
 export default function AddContributionScreen({ navigation, route }) {
 	const functionId = route?.params?.functionId;
+	const source = route?.params?.source;
 	const { user } = useAuth();
+	const { translations } = useLanguage();
 	const [submitting, setSubmitting] = useState(false);
 	const [functionType, setFunctionType] = useState(null);
 	const [matchedContribution, setMatchedContribution] = useState(null);
@@ -58,11 +61,11 @@ export default function AddContributionScreen({ navigation, route }) {
 		if (!functionId) {
 			Toast.show({
 				type: 'error',
-				text1: 'Invalid function ID',
+				text1: translations.invalidFunctionId,
 			});
 			navigation.goBack();
 		}
-	}, [functionId, navigation]);
+	}, [functionId, navigation, translations]);
 
 	useEffect(() => {
 		const loadFunctionType = async () => {
@@ -93,7 +96,7 @@ export default function AddContributionScreen({ navigation, route }) {
 				setSubmitting(true);
 
 				if (!user?.id) {
-					Toast.show({ type: 'error', text1: 'User not authenticated' });
+					Toast.show({ type: 'error', text1: translations.userNotAuthenticated });
 					return;
 				}
 
@@ -123,11 +126,19 @@ export default function AddContributionScreen({ navigation, route }) {
 
 				Toast.show({
 					type: 'success',
-					text1: 'Contribution saved',
+					text1: translations.contributionSaved,
 				});
 
 				if (exitAfter) {
-					navigation.goBack();
+					if (source === 'INVITATION') {
+						// Navigate to Functions list with Invitations tab
+						navigation.reset({
+							index: 0,
+							routes: [{ name: 'Home' }, { name: 'Functions', params: { initialTab: 'invitations' } }],
+						});
+					} else {
+						navigation.goBack();
+					}
 				} else {
 					const selectedPlaceId = values.place_id;
 					reset({
@@ -144,14 +155,14 @@ export default function AddContributionScreen({ navigation, route }) {
 				console.error('[AddContribution] Error:', error);
 				Toast.show({
 					type: 'error',
-					text1: 'Failed to save contribution',
+					text1: translations.failedToSave,
 					text2: error.message,
 				});
 			} finally {
 				setSubmitting(false);
 			}
 		},
-		[functionId, user, reset, navigation]
+		[functionId, user, reset, navigation, translations]
 	);
 
 	const onSaveAndAddNext = useCallback(
@@ -216,16 +227,34 @@ export default function AddContributionScreen({ navigation, route }) {
 	}, [matchedContribution]);
 
 	const handleSelectSuggestion = useCallback((suggestion) => {
+		console.log('suggestion: ', suggestion);
 		setSelectedSuggestion(suggestion);
+		// Prefill ALL fields from suggestion
+		// setValue('place_id', suggestion.place_id, { shouldValidate: true });
+		// setValue('family_name', suggestion.family_name || '', { shouldValidate: true });
+		// setValue('person_name', suggestion.person_name || '', { shouldValidate: true });
+		// setValue('spouse_name', suggestion.spouse_name || '', { shouldValidate: true });
+		// setValue('contribution_type', suggestion.contribution_type || 'cash', { shouldValidate: true });
+		// setValue('notes', suggestion.notes || '', { shouldValidate: true });
 		const amountDisplay = suggestion.contribution_type === 'gold'
 			? suggestion.amount
 			: suggestion.amount;
-		setValue('amount', amountDisplay.toString(), { shouldValidate: true });
+		// setValue('amount', amountDisplay.toString(), { shouldValidate: true });
+		reset(prev=>({
+			...prev,
+			family_name: suggestion.family_name || '',
+			person_name: suggestion.person_name || '',
+			spouse_name: suggestion.spouse_name || '',
+			contribution_type: suggestion.contribution_type || 'cash',
+			amount: amountDisplay.toString() || '',
+			notes: suggestion.notes || '',
+		}))
 	}, [setValue]);
 
 	const contributionType = watch('contribution_type');
 	const watchPersonName = watch('person_name');
 	const watchPlaceId = watch('place_id');
+	console.log('watchPlaceId: ', watchPlaceId);
 	const watchFamilyName = watch('family_name');
 
 	useEffect(() => {
@@ -346,6 +375,7 @@ export default function AddContributionScreen({ navigation, route }) {
 					control={control}
 					label="Location"
 					placeholder="Search or select location"
+					required
 					rules={{ required: 'Location is required' }}
 				/>
 
@@ -361,52 +391,11 @@ export default function AddContributionScreen({ navigation, route }) {
 					name="person_name"
 					label="Person Name"
 					control={control}
+					required
 					rules={{ required: 'Person name is required' }}
 					placeholder="Required"
 					voice={false}
 				/>
-
-				{functionType === 'INVITATION' && (matchingLoading || matchedContribution) ? (
-					<View style={styles.matchCard}>
-						<Text style={styles.matchTitle}>Past Contribution</Text>
-						{matchingLoading ? (
-							<Text style={styles.matchLoading}>Searching...</Text>
-						) : (
-							<>
-								<Text style={styles.matchName}>{matchedContribution?.person_name}</Text>
-								<Text style={styles.matchPlace}>
-									{matchedContribution?.locations?.name}
-									{matchedContribution?.locations?.tamil_name ? ` · ${matchedContribution.locations.tamil_name}` : ''}
-								</Text>
-								<Text style={styles.matchAmount}>
-									{matchedContribution?.contribution_type === 'gold'
-										? `${matchedContribution?.amount} grams`
-										: `₹${parseFloat(matchedContribution?.amount || 0).toLocaleString('en-IN')}`}
-								</Text>
-								<Text style={styles.matchFunction}>
-									{matchedContribution?.functions?.title || 'Unknown function'}
-									{matchedContribution?.functions?.function_date ? ` · ${new Date(matchedContribution.functions.function_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''}
-								</Text>
-
-							{matchedContribution?.returned === false ? (
-								<TouchableOpacity
-									style={[styles.matchReturnButton, markingLoading && styles.matchReturnButtonDisabled]}
-									onPress={handleMarkAsReturned}
-									disabled={markingLoading}
-								>
-									<Text style={styles.matchReturnButtonText}>
-										{markingLoading ? 'Marking...' : 'Mark as Returned'}
-									</Text>
-								</TouchableOpacity>
-							) : (
-								<View style={styles.matchReturnedLabel}>
-									<Text style={styles.matchReturnedLabelText}>✓ Returned</Text>
-								</View>
-							)}
-							</>
-						)}
-					</View>
-				) : null}
 
 				{functionType === 'INVITATION' && suggestions.length > 0 && !selectedSuggestion ? (
 					<View style={styles.suggestionsContainer}>
@@ -448,13 +437,16 @@ export default function AddContributionScreen({ navigation, route }) {
 				{selectedSuggestion ? (
 					<View style={styles.suggestionSelectedCard}>
 						<Text style={styles.suggestionSelectedNote}>
-							💡 Amount pre-filled from: {selectedSuggestion.person_name}
+							💡 Details pre-filled from previous record
 						</Text>
 						<TouchableOpacity
 							style={styles.suggestionClearButton}
 							onPress={() => {
 								setSelectedSuggestion(null);
 								setValue('amount', '', { shouldValidate: false });
+								setValue('family_name', '', { shouldValidate: false });
+								setValue('spouse_name', '', { shouldValidate: false });
+								setValue('contribution_type', 'cash', { shouldValidate: false });
 							}}
 						>
 							<Text style={styles.suggestionClearButtonText}>Clear suggestion</Text>
@@ -492,6 +484,7 @@ export default function AddContributionScreen({ navigation, route }) {
 					name="amount"
 					label="Amount"
 					control={control}
+					required
 					rules={{ required: 'Amount is required' }}
 					placeholder="0.00"
 					type="number"
@@ -516,15 +509,17 @@ export default function AddContributionScreen({ navigation, route }) {
 					<Text style={styles.buttonText}>Cancel</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity
-					style={[styles.button, styles.nextButton]}
-					onPress={handleSubmit(onSaveAndAddNext)}
-					disabled={isSubmitting || submitting}
-				>
-					<Text style={styles.buttonText}>
-						{isSubmitting || submitting ? 'Saving...' : 'Save & Add Next'}
-					</Text>
-				</TouchableOpacity>
+				{source !== 'INVITATION' && (
+					<TouchableOpacity
+						style={[styles.button, styles.nextButton]}
+						onPress={handleSubmit(onSaveAndAddNext)}
+						disabled={isSubmitting || submitting}
+					>
+						<Text style={styles.buttonText}>
+							{isSubmitting || submitting ? 'Saving...' : 'Save & Add Next'}
+						</Text>
+					</TouchableOpacity>
+				)}
 
 				<TouchableOpacity
 					style={[styles.button, styles.exitButton]}

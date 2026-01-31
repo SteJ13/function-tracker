@@ -84,6 +84,7 @@ export async function updateContribution(id, updates, userId) {
     .single();
 
   if (error) {
+    console.log('error: ', error);
     throw error;
   }
 
@@ -125,22 +126,32 @@ export async function markContributionReturned(contributionId) {
   return data;
 }
 
-export async function getPendingReturns({ page = 1, limit = PAGE_SIZE }) {
+export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQuery = '' }) {
   await ensureOnline();
 
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  const { data, count, error } = await supabase
+  let query = supabase
     .from('contributions')
     .select(
-      'id, person_name, family_name, amount, contribution_type, returned, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date, function_type)',
+      'id, person_name, family_name, spouse_name, amount, contribution_type, returned, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date, function_type)',
       { count: 'exact' }
     )
     .eq('direction', 'GIVEN_TO_ME')
     .eq('returned', false)
+    .eq('functions.function_type', 'MY_FUNCTION')
     .order('created_at', { ascending: false })
     .range(from, to);
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = `%${searchQuery.trim()}%`;
+    query = query.or(
+      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q},locations.name.ilike.${q},locations.tamil_name.ilike.${q}`
+    );
+  }
+
+  const { data, count, error } = await query;
 
   if (error) {
     throw error;
@@ -177,13 +188,14 @@ export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQ
       { count: 'exact' }
     )
     .eq('returned', true)
+    .eq('direction', 'GIVEN_TO_ME')
     .order('returned_at', { ascending: false });
 
   // Add search filters if query provided
   if (searchQuery && searchQuery.trim()) {
     const q = `%${searchQuery.trim()}%`;
     query = query.or(
-      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q}`
+      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q},locations.name.ilike.${q},locations.tamil_name.ilike.${q}`
     );
   }
 
@@ -193,18 +205,7 @@ export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQ
     throw error;
   }
 
-  // Filter by location name on client side (since it's in joined table)
-  let filteredData = data || [];
-  if (searchQuery && searchQuery.trim()) {
-    const q = searchQuery.trim().toLowerCase();
-    filteredData = filteredData.filter(item => {
-      const locName = item.locations?.name?.toLowerCase() || '';
-      const locTamil = item.locations?.tamil_name?.toLowerCase() || '';
-      return locName.includes(q) || locTamil.includes(q);
-    });
-  }
-
-  const transformedData = filteredData.map(item => ({
+  const transformedData = (data || []).map(item => ({
     ...item,
     location: item.locations || null,
     locations: undefined,
@@ -232,7 +233,7 @@ export async function getSuggestions({ personName, familyName, placeId }) {
   let query = supabase
     .from('contributions')
     .select(
-      'id, person_name, family_name, amount, contribution_type, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date)'
+      'id, person_name, family_name, amount, contribution_type, spouse_name, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date), notes'
     )
     .eq('direction', 'GIVEN_TO_ME')
     .eq('returned', false)

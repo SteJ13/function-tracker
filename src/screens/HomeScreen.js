@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '@context/LanguageContext';
 import { getFunctionCounts } from '@screens/Functions/api';
 import { useAuth } from '@context/AuthContext';
+import { supabase } from '@services/supabaseClient';
 
 const { width } = Dimensions.get('window');
 const PADDING = 16;
@@ -29,6 +30,7 @@ console.log(user);
     today: 0,
     completed: 0,
   });
+  const [pendingTotal, setPendingTotal] = useState(0);
 
   // Load statistics whenever screen is focused
   useFocusEffect(
@@ -41,6 +43,8 @@ console.log(user);
     try {
       const counts = await getFunctionCounts();
       setStats(counts);
+      const pendingSum = await getPendingReturnsTotal();
+      setPendingTotal(pendingSum);
     } catch (error) {
       console.error('Failed to load statistics:', error);
       setStats({
@@ -49,7 +53,23 @@ console.log(user);
         today: 0,
         completed: 0,
       });
+      setPendingTotal(0);
     }
+  };
+
+  const getPendingReturnsTotal = async () => {
+    const { data, error } = await supabase
+      .from('contributions')
+      .select('amount, functions!inner(function_type)')
+      .eq('direction', 'GIVEN_TO_ME')
+      .eq('returned', false)
+      .eq('functions.function_type', 'MY_FUNCTION');
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   };
 
   const items = [
@@ -57,7 +77,7 @@ console.log(user);
       id: 'categories',
       label: translations.functionCategories,
       icon: '📂',
-      onPress: () => navigation.navigate('Functions'),
+      onPress: () => navigation.navigate('FunctionCategories'),
     },
     {
       id: 'view',
@@ -74,6 +94,7 @@ console.log(user);
     {
       id: 'ledger',
       label: 'Pending Returns',
+      subtitle: `₹${pendingTotal.toLocaleString('en-IN')}`,
       icon: '💰',
       onPress: () => navigation.navigate('Ledger'),
     },
@@ -124,6 +145,9 @@ console.log(user);
           >
             <Text style={styles.icon}>{item.icon}</Text>
             <Text style={styles.label}>{item.label}</Text>
+            {item.subtitle ? (
+              <Text style={styles.subtitle}>{item.subtitle}</Text>
+            ) : null}
           </TouchableOpacity>
         ))}
       </View>
@@ -189,5 +213,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     color: '#333',
+  },
+  subtitle: {
+    fontSize: 11,
+    color: '#D32F2F',
+    marginTop: 4,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

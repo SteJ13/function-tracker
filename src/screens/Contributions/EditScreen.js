@@ -97,7 +97,6 @@ export default function EditContributionScreen({ navigation, route }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Edit Contribution</Text>
 
       <View style={styles.formCard}>
         <RHFLocationInput

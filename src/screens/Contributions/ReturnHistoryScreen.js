@@ -145,7 +145,7 @@ export default function ReturnHistoryScreen({ navigation }) {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name, location, or date..."
+          placeholder="Search by name or location..."
           placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={handleSearchChange}

@@ -14,6 +14,7 @@ export default function Select({
   placeholder = 'Select',
   rules = {},
   disabled = false,
+  required = false,
 }) {
   const modalData = useMemo(() => {
     return options.map(opt => ({
@@ -38,7 +39,12 @@ export default function Select({
 
         return (
           <View style={styles.container}>
-            {label ? <Text style={styles.label}>{label}</Text> : null}
+            {label ? (
+              <Text style={styles.label}>
+                {label}
+                {required && <Text style={styles.asterisk}> *</Text>}
+              </Text>
+            ) : null}
 
             <ModalSelector
               data={modalData}

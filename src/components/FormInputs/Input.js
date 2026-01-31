@@ -58,7 +58,7 @@ export default function Input({
           {label && (
             <Text style={styles.label}>
               {label}
-              {required ? ' *' : ''}
+              {required && <Text style={styles.asterisk}> *</Text>}
             </Text>
           )}
 

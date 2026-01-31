@@ -139,8 +139,9 @@ export default function FunctionFormScreen({ navigation, route }) {
           });
 
           Toast.show({ type: 'success', text1: 'Function updated' });
+          navigation.goBack();
         } else {
-          await createFunction({
+          const createdFunction = await createFunction({
             title: values.title.trim(),
             category_id: values.categoryId,
             function_date: values.date,
@@ -153,9 +154,18 @@ export default function FunctionFormScreen({ navigation, route }) {
           });
 
           Toast.show({ type: 'success', text1: 'Function added' });
-        }
 
-        navigation.goBack();
+          // Auto-navigate to add contribution if this is an INVITATION
+          if (values.function_type === 'INVITATION' && createdFunction?.id) {
+            navigation.navigate('AddContribution', {
+              functionId: createdFunction.id,
+              functionTitle: values.title.trim(),
+              source: 'INVITATION',
+            });
+          } else {
+            navigation.goBack();
+          }
+        }
       } catch (error) {
         console.log('error: ', error);
         Toast.show({
@@ -190,6 +200,24 @@ export default function FunctionFormScreen({ navigation, route }) {
         </View>
       )}
 
+      {!functionId && initialFunctionType === 'INVITATION' && (
+        <View style={styles.helperSection}>
+          <Text style={styles.helperTitle}>👤 Recording an Invitation</Text>
+          <Text style={styles.helperText}>
+            An invitation represents a function you attended as a guest. You'll record one contribution for it. After saving, you can immediately add your contribution details.
+          </Text>
+        </View>
+      )}
+
+      {!functionId && initialFunctionType === 'MY_FUNCTION' && (
+        <View style={styles.helperSection}>
+          <Text style={styles.helperTitle}>📋 Creating Your Function</Text>
+          <Text style={styles.helperText}>
+            This is a function you're organizing or will organize. You can track contributions from multiple guests.
+          </Text>
+        </View>
+      )}
+
       <Input
         name="title"
         label="Title"
@@ -204,6 +232,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         name="categoryId"
         label="Category"
         control={control}
+        required
         options={categories.map(cat => ({ label: cat.name, value: cat.id }))}
         rules={{ required: 'Category is required' }}
         placeholder="Select category"
@@ -214,6 +243,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         name="date"
         label="Date"
         control={control}
+        required
         rules={{ required: 'Date is required' }}
         placeholder="YYYY-MM-DD"
         editable={isOnline}
@@ -223,6 +253,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         name="time"
         label="Time"
         control={control}
+        required
         rules={{ required: 'Time is required' }}
         placeholder="HH:mm"
         editable={isOnline}
@@ -303,6 +334,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  helperSection: {
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1976D2',
+  },
+  helperTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1976D2',
+    marginBottom: 6,
+  },
+  helperText: {
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 18,
   },
   actions: {
     flexDirection: 'row',

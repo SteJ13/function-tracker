@@ -21,6 +21,7 @@ export default function RHFLocationInput({
   placeholder = 'Search or add location',
   rules = {},
   disabled = false,
+  required = false,
 }) {
   const { isOnline } = useNetwork();
   const [inputText, setInputText] = useState('');
@@ -263,7 +264,12 @@ export default function RHFLocationInput({
 
         return (
           <View style={styles.container}>
-            {label && <Text style={styles.label}>{label}</Text>}
+            {label && (
+              <Text style={styles.label}>
+                {label}
+                {required && <Text style={styles.asterisk}> *</Text>}
+              </Text>
+            )}
 
             <View style={styles.inputWrapper}>
               <TextInput
@@ -495,6 +501,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: '#d32f2f',
     fontSize: 12,
+  },
+  asterisk: {
+    color: '#d32f2f',
   },
   suggestionsOverlay: {
     position: 'absolute',

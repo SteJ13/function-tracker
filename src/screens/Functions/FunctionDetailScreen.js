@@ -12,6 +12,7 @@ import Toast from 'react-native-toast-message';
 
 import { getFunctionById } from './api';
 import useFunctionActions from './useFunctionActions';
+import { supabase } from '@services/supabaseClient';
 
 export default function FunctionDetailScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
@@ -20,6 +21,8 @@ export default function FunctionDetailScreen({ navigation, route }) {
   const [functionData, setFunctionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [contribution, setContribution] = useState(null);
+  const [loadingContribution, setLoadingContribution] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -53,6 +56,39 @@ export default function FunctionDetailScreen({ navigation, route }) {
     loadData();
   }, [functionId]);
 
+  // Load contribution for INVITATION functions
+  useEffect(() => {
+    const loadContribution = async () => {
+      if (!functionData || functionData.function_type !== 'INVITATION') {
+        setContribution(null);
+        return;
+      }
+
+      try {
+        setLoadingContribution(true);
+        const { data, error } = await supabase
+          .from('contributions')
+          .select('id, person_name, family_name, spouse_name, amount, contribution_type, returned, returned_at, places:place_id(id, name, tamil_name)')
+          .eq('function_id', functionId)
+          .eq('direction', 'GIVEN_TO_ME')
+          .limit(1);
+
+        if (error) {
+          throw error;
+        }
+
+        setContribution(data && data.length > 0 ? data[0] : null);
+      } catch (error) {
+        console.error('[FunctionDetail] Failed to load contribution:', error);
+        setContribution(null);
+      } finally {
+        setLoadingContribution(false);
+      }
+    };
+
+    loadContribution();
+  }, [functionData, functionId]);
+
   const handleEdit = useCallback(() => {
     if (!functionId) return;
     navigation.navigate('FunctionForm', { functionId });
@@ -62,6 +98,22 @@ export default function FunctionDetailScreen({ navigation, route }) {
     if (!functionId) return;
     navigation.navigate('ContributionsList', { functionId });
   }, [functionId, navigation]);
+
+  const handleAddContribution = useCallback(() => {
+    if (!functionId) return;
+    navigation.navigate('AddContribution', {
+      functionId,
+      functionTitle: functionData?.title,
+    });
+  }, [functionId, navigation, functionData?.title]);
+
+  const handleEditContribution = useCallback(() => {
+    if (!contribution?.id) return;
+    navigation.navigate('ContributionsEdit', {
+      contributionId: contribution.id,
+      functionId,
+    });
+  }, [contribution?.id, functionId, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!functionData) return;
@@ -170,6 +222,13 @@ export default function FunctionDetailScreen({ navigation, route }) {
       <View style={styles.headerSection}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{functionData.title || 'Untitled'}</Text>
+          {functionData.function_type && (
+            <View style={[styles.typeBadge, functionData.function_type === 'INVITATION' ? styles.typeBadgeInvitation : styles.typeBadgeMyFunction]}>
+              <Text style={styles.typeBadgeText}>
+                {functionData.function_type === 'INVITATION' ? '👤 Invitation' : '📋 My Function'}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={[styles.statusBadge, getStatusStyle(functionData.status)]}>
           <Text style={styles.statusText}>
@@ -237,6 +296,75 @@ export default function FunctionDetailScreen({ navigation, route }) {
           })}
         </Text>
       </View>
+
+      {/* Your Contribution Section for INVITATION functions */}
+      {functionData?.function_type === 'INVITATION' && (
+        <View>
+          <Text style={styles.sectionTitle}>👤 Your Contribution</Text>
+          {loadingContribution ? (
+            <View style={[styles.card, styles.centerContent]}>
+              <ActivityIndicator size="small" color="#1976D2" />
+              <Text style={styles.loadingText}>Loading contribution...</Text>
+            </View>
+          ) : contribution ? (
+            <View style={[styles.card, styles.contributionCard]}>
+              <View style={styles.contributionHeader}>
+                <Text style={styles.contributionName}>
+                  {contribution.person_name}
+                  {contribution.family_name ? ` (${contribution.family_name})` : ''}
+                </Text>
+                {contribution.returned && (
+                  <View style={styles.returnedBadge}>
+                    <Text style={styles.returnedBadgeText}>✓ Returned</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.contributionDetails}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Amount:</Text>
+                  <Text style={styles.detailValue}>
+                    {contribution.contribution_type === 'gold'
+                      ? `${contribution.amount} grams`
+                      : `₹${parseFloat(contribution.amount).toLocaleString('en-IN')}`}
+                  </Text>
+                </View>
+                {contribution.places && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Location:</Text>
+                    <Text style={styles.detailValue}>{contribution.places.name}</Text>
+                  </View>
+                )}
+                {contribution.returned_at && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Returned:</Text>
+                    <Text style={styles.detailValue}>
+                      {new Date(contribution.returned_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={[styles.button, styles.secondaryButton]}
+                onPress={handleEditContribution}
+              >
+                <Text style={styles.secondaryButtonText}>Edit Contribution</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.card, styles.contributionCTA]}
+              onPress={handleAddContribution}
+            >
+              <Text style={styles.contributionCTAIcon}>➕</Text>
+              <Text style={styles.contributionCTAText}>Add Your Contribution</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* View Contributions Button */}
       <TouchableOpacity
@@ -325,6 +453,24 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     lineHeight: 34,
   },
+  typeBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  typeBadgeInvitation: {
+    backgroundColor: '#F3E5F5',
+  },
+  typeBadgeMyFunction: {
+    backgroundColor: '#E8F5E9',
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
@@ -397,6 +543,99 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 6,
     fontWeight: '500',
+  },
+
+  /* Section Title */
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+
+  /* Your Contribution Section */
+  contributionCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#1976D2',
+  },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#999',
+  },
+  contributionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  contributionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  returnedBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  returnedBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  contributionDetails: {
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#999',
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  contributionCTA: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#1976D2',
+    backgroundColor: '#F0F7FF',
+  },
+  contributionCTAIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  contributionCTAText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1976D2',
+  },
+  secondaryButton: {
+    backgroundColor: '#E3F2FD',
+    marginTop: 8,
+  },
+  secondaryButtonText: {
+    color: '#1976D2',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   /* View Contributions Button */

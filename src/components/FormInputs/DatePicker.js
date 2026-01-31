@@ -14,6 +14,7 @@ export default function DatePicker({
   placeholder = 'Select Date',
   rules = {},
   disabled = false,
+  required = false,
 }) {
   const [showPicker, setShowPicker] = useState(false);
 
@@ -63,7 +64,12 @@ export default function DatePicker({
 
         return (
           <View style={styles.container}>
-            {label ? <Text style={styles.label}>{label}</Text> : null}
+            {label ? (
+              <Text style={styles.label}>
+                {label}
+                {required && <Text style={styles.asterisk}> *</Text>}
+              </Text>
+            ) : null}
 
             <Pressable
               onPress={() => !disabled && setShowPicker(true)}
