@@ -19,6 +19,10 @@ import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
 import ContributionsListScreen from '@screens/Contributions/ListScreen';
 import ContributionsAddScreen from '@screens/Contributions/AddScreen';
 import ContributionsEditScreen from '@screens/Contributions/EditScreen';
+import LedgerScreen from '@screens/Contributions/LedgerScreen';
+import ReturnHistoryScreen from '@screens/Contributions/ReturnHistoryScreen';
+import LocationsListScreen from '@screens/Locations/ListScreen';
+import LocationAddEditScreen from '@screens/Locations/AddEditScreen';
 import FunctionCategoriesScreen from '@screens/FunctionCategories';
 import FunctionCategoryForm from '@screens/FunctionCategories/Form';
 import NotificationsScreen from '@screens/Notifications/NotificationsScreen';
@@ -108,6 +112,28 @@ function AppStack() {
         name="Calendar"
         component={CalendarScreen}
         options={{ title: 'Calendar' }}
+      />
+      <Stack.Screen
+        name="Ledger"
+        component={LedgerScreen}
+        options={{ title: 'Pending Returns' }}
+      />
+      <Stack.Screen
+        name="ReturnHistory"
+        component={ReturnHistoryScreen}
+        options={{ title: 'Return History' }}
+      />
+      <Stack.Screen
+        name="LocationsList"
+        component={LocationsListScreen}
+        options={{ title: 'Manage Locations' }}
+      />
+      <Stack.Screen
+        name="LocationAddEdit"
+        component={LocationAddEditScreen}
+        options={({ route }) => ({
+          title: route?.params?.location ? 'Edit Location' : 'Add Location',
+        })}
       />
     </Stack.Navigator>
   );

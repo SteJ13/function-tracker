@@ -57,7 +57,7 @@ console.log(user);
       id: 'categories',
       label: translations.functionCategories,
       icon: '📂',
-      onPress: () => navigation.navigate('FunctionCategories'),
+      onPress: () => navigation.navigate('Functions'),
     },
     {
       id: 'view',
@@ -72,16 +72,22 @@ console.log(user);
       onPress: () => navigation.navigate('Calendar'),
     },
     {
+      id: 'ledger',
+      label: 'Pending Returns',
+      icon: '💰',
+      onPress: () => navigation.navigate('Ledger'),
+    },
+    {
+      id: 'locations',
+      label: 'Locations',
+      icon: '📍',
+      onPress: () => navigation.navigate('LocationsList'),
+    },
+    {
       id: 'notifications',
       label: translations.notifications,
       icon: '🔔',
       onPress: () => navigation.navigate('Notifications'),
-    },
-    {
-      id: 'more',
-      label: translations.more,
-      icon: '➕',
-      onPress: () => {},
     },
   ];
 
