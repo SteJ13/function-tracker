@@ -28,16 +28,30 @@ import FunctionCategoryForm from '@screens/FunctionCategories/Form';
 import NotificationsScreen from '@screens/Notifications/NotificationsScreen';
 import NotificationDetailScreen from '@screens/Notifications/NotificationDetailScreen';
 import CalendarScreen from '@screens/Calendar';
-import AreaCalculatorScreen from '@screens/AreaCalculatorScreen';
+import OpenMenusScreen from '@screens/openMenus/OpenMenusScreen';
+import AreaCalculatorScreen from '@screens/openMenus/AreaCalculatorScreen';
 
 const Stack = createNativeStackNavigator();
 
 // Auth Stack - shown when user is NOT logged in
 function AuthStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
+    <Stack.Navigator>
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Signup"
+        component={SignupScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="OpenMenus"
+        component={OpenMenusScreen}
+        options={{ title: 'Open Menus' }}
+      />
       <Stack.Screen
         name="AreaCalculator"
         component={AreaCalculatorScreen}
@@ -140,6 +154,11 @@ function AppStack() {
         options={({ route }) => ({
           title: route?.params?.location ? 'Edit Location' : 'Add Location',
         })}
+      />
+      <Stack.Screen
+        name="OpenMenus"
+        component={OpenMenusScreen}
+        options={{ title: 'Open Menus' }}
       />
       <Stack.Screen
         name="AreaCalculator"

@@ -105,10 +105,10 @@ console.log(user);
       onPress: () => navigation.navigate('LocationsList'),
     },
     {
-      id: 'area-calculator',
-      label: 'Area Cal',
-      icon: '📏',
-      onPress: () => navigation.navigate('AreaCalculator'),
+      id: 'open-menus',
+      label: 'Open Menus',
+      icon: '🧰',
+      onPress: () => navigation.navigate('OpenMenus'),
     },
     {
       id: 'notifications',

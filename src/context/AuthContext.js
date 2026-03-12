@@ -3,6 +3,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@services/supabaseClient';
 
 export const AuthContext = createContext(null);
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 3500;
+
+function syncAutoRefresh(activeSession) {
+  if (activeSession) {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+
+    promise
+      .then(value => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(error => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 /**
  * Clear all offline cache on logout
@@ -29,30 +56,47 @@ export function AuthProvider({ children }) {
   // Initialize session on app load and subscribe to auth changes
   useEffect(() => {
     let authListener;
+    let isMounted = true;
 
     const initAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        const currentSession = data?.session || null;
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-      } catch (err) {
-        console.error('Auth init error:', err);
-      } finally {
-        setLoading(false);
-      }
-
       authListener = supabase.auth.onAuthStateChange((_event, newSession) => {
+        syncAutoRefresh(newSession);
+        if (!isMounted) return;
         setSession(newSession);
         setUser(newSession?.user || null);
       }).data?.subscription;
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          AUTH_BOOTSTRAP_TIMEOUT_MS,
+          'Supabase auth bootstrap timeout'
+        );
+
+        if (error) throw error;
+
+        const currentSession = data?.session || null;
+        syncAutoRefresh(currentSession);
+        if (!isMounted) return;
+        setSession(currentSession);
+        setUser(currentSession?.user || null);
+      } catch (err) {
+        console.warn('Auth init fallback to guest:', err?.message || err);
+        syncAutoRefresh(null);
+        if (!isMounted) return;
+        setSession(null);
+        setUser(null);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     };
 
     initAuth();
 
     return () => {
+      isMounted = false;
       if (authListener) {
         authListener.unsubscribe();
       }
@@ -61,9 +105,8 @@ export function AuthProvider({ children }) {
 
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    console.log('error: ', error);
-    console.log('data: ', data);
     if (error) throw error;
+    syncAutoRefresh(data.session);
     setSession(data.session);
     setUser(data.session?.user || null);
     return data;
@@ -72,6 +115,7 @@ export function AuthProvider({ children }) {
   const signUp = async (email, password) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
+    syncAutoRefresh(data.session);
     setSession(data.session);
     setUser(data.session?.user || null);
     return data;
@@ -84,6 +128,7 @@ export function AuthProvider({ children }) {
     // Clear offline cache on logout
     await clearOfflineCache();
 
+    syncAutoRefresh(null);
     setSession(null);
     setUser(null);
   };

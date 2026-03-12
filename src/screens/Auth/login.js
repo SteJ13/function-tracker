@@ -31,68 +31,82 @@ export default function LoginScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Login</Text>
+            <View>
+                <Text style={styles.title}>Login</Text>
 
-            <Input
-                control={control}
-                name="username"
-                label="Username"
-                required
-                rules={{ required: 'Username is required' }}
-                voice={false}
-            />
+                <Input
+                    control={control}
+                    name="username"
+                    label="Username"
+                    required
+                    rules={{ required: 'Username is required' }}
+                    voice={false}
+                />
 
-            <Controller
-                control={control}
-                name="password"
-                rules={{ required: 'Password is required' }}
-                render={({ field: { value, onChange, onBlur }, fieldState: { error } }) => (
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.label}>Password *</Text>
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                value={value}
-                                onChangeText={onChange}
-                                onBlur={onBlur}
-                                secureTextEntry={!showPassword}
-                                placeholder="Password"
-                                style={styles.input}
-                            />
-                            <Pressable
-                                onPress={() => setShowPassword(prev => !prev)}
-                                hitSlop={10}
-                                style={styles.iconButton}
-                            >
-                                {showPassword ? (
-                                    <EyeOpenIcon size={20} color="#555" />
-                                ) : (
-                                    <EyeClosedIcon size={20} color="#555" />
-                                )}
-                            </Pressable>
+                <Controller
+                    control={control}
+                    name="password"
+                    rules={{ required: 'Password is required' }}
+                    render={({ field: { value, onChange, onBlur }, fieldState: { error } }) => (
+                        <View style={styles.fieldContainer}>
+                            <Text style={styles.label}>Password *</Text>
+                            <View style={styles.inputWrapper}>
+                                <TextInput
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                    secureTextEntry={!showPassword}
+                                    placeholder="Password"
+                                    style={styles.input}
+                                />
+                                <Pressable
+                                    onPress={() => setShowPassword(prev => !prev)}
+                                    hitSlop={10}
+                                    style={styles.iconButton}
+                                >
+                                    {showPassword ? (
+                                        <EyeOpenIcon size={20} color="#555" />
+                                    ) : (
+                                        <EyeClosedIcon size={20} color="#555" />
+                                    )}
+                                </Pressable>
+                            </View>
+                            {error && <Text style={styles.error}>{error.message}</Text>}
                         </View>
-                        {error && <Text style={styles.error}>{error.message}</Text>}
-                    </View>
-                )}
-            />
+                    )}
+                />
 
-            <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSubmit(onSubmit)}
-                disabled={loading}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                    onPress={handleSubmit(onSubmit)}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                >
+                    <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-                onPress={() => navigation?.navigate?.('Signup')}
-                style={styles.signupLink}
-                activeOpacity={0.75}
-            >
-                <Text style={styles.signupText}>
-                    Don't have an account? <Text style={styles.signupTextBold}>Sign up</Text>
-                </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => navigation?.navigate?.('Signup')}
+                    style={styles.signupLink}
+                    activeOpacity={0.75}
+                >
+                    <Text style={styles.signupText}>
+                        Don't have an account? <Text style={styles.signupTextBold}>Sign up</Text>
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.footer}>
+                <TouchableOpacity
+                    onPress={() => navigation?.navigate?.('OpenMenus')}
+                    style={styles.openMenusLink}
+                    activeOpacity={0.75}
+                >
+                    <Text style={styles.openMenusText}>
+                        Need tools without login? <Text style={styles.openMenusTextBold}>Open Menus</Text>
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }
@@ -101,7 +115,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        justifyContent: 'center',
+        justifyContent: 'space-between',
+        paddingTop: 60,
+        paddingBottom: 32,
     },
     title: {
         fontSize: 24,
@@ -165,6 +181,20 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     signupTextBold: {
+        color: '#1976D2',
+        fontWeight: '600',
+    },
+    footer: {
+        alignItems: 'center',
+    },
+    openMenusLink: {
+        paddingVertical: 8,
+    },
+    openMenusText: {
+        color: '#555',
+        fontSize: 13,
+    },
+    openMenusTextBold: {
         color: '#1976D2',
         fontWeight: '600',
     },
