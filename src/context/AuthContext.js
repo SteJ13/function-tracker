@@ -59,7 +59,16 @@ export function AuthProvider({ children }) {
     let isMounted = true;
 
     const initAuth = async () => {
-      authListener = supabase.auth.onAuthStateChange((_event, newSession) => {
+      authListener = supabase.auth.onAuthStateChange((event, newSession) => {
+        console.log('[AuthContext] Auth state change event:', event);
+
+        // Handle password recovery event
+        if (event === 'PASSWORD_RECOVERY') {
+          console.log('[AuthContext] PASSWORD_RECOVERY event detected');
+          // Navigation to ResetPasswordScreen will be handled by ResetPasswordScreen component
+          // watching onAuthStateChange
+        }
+
         syncAutoRefresh(newSession);
         if (!isMounted) return;
         setSession(newSession);

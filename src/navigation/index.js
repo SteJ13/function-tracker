@@ -10,9 +10,13 @@ import OfflineBanner from '@components/OfflineBanner';
 // Auth Screens
 import LoginScreen from '@screens/Auth/login';
 import SignupScreen from '@screens/Auth/signup';
+import ForgotPasswordScreen from '@screens/Auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '@screens/Auth/ResetPasswordScreen';
 
 // App Screens
 import HomeScreen from '@screens/HomeScreen';
+import MyFunctionsScreen from '@screens/Functions/MyFunctionsScreen';
+import InvitationsScreen from '@screens/Functions/InvitationsScreen';
 import FunctionListScreen from '@screens/Functions';
 import FunctionFormScreen from '@screens/Functions/Form';
 import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
@@ -30,6 +34,7 @@ import NotificationDetailScreen from '@screens/Notifications/NotificationDetailS
 import CalendarScreen from '@screens/Calendar';
 import OpenMenusScreen from '@screens/openMenus/OpenMenusScreen';
 import AreaCalculatorScreen from '@screens/openMenus/AreaCalculatorScreen';
+import HiddenVideoScreen from '@screens/openMenus/HiddenVideoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +53,24 @@ function AuthStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{
+          headerShown: true,
+          title: 'Reset Password',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{
+          headerShown: true,
+          title: 'Set New Password',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
         name="OpenMenus"
         component={OpenMenusScreen}
         options={{ title: 'Open Menus' }}
@@ -56,6 +79,11 @@ function AuthStack() {
         name="AreaCalculator"
         component={AreaCalculatorScreen}
         options={{ title: 'Area Calculator' }}
+      />
+      <Stack.Screen
+        name="HiddenVideo"
+        component={HiddenVideoScreen}
+        options={{ title: 'Hidden Video' }}
       />
     </Stack.Navigator>
   );
@@ -72,6 +100,16 @@ function AppStack() {
           title: 'Function Tracker',
           headerRight: () => <HeaderUserMenu />,
         }}
+      />
+      <Stack.Screen
+        name="MyFunctions"
+        component={MyFunctionsScreen}
+        options={{ title: 'My Functions' }}
+      />
+      <Stack.Screen
+        name="Invitations"
+        component={InvitationsScreen}
+        options={{ title: 'Invitations' }}
       />
       <Stack.Screen
         name="Functions"
@@ -165,6 +203,11 @@ function AppStack() {
         component={AreaCalculatorScreen}
         options={{ title: 'Area Calculator' }}
       />
+      <Stack.Screen
+        name="HiddenVideo"
+        component={HiddenVideoScreen}
+        options={{ title: 'Hidden Video' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -178,6 +221,19 @@ export default function RootNavigator() {
   if (loading) {
     return <AppLoader />;
   }
+
+  // Deep linking configuration
+  const linking = {
+    prefixes: ['yourapp://', 'https://yourapp.com'],
+    config: {
+      screens: {
+        ResetPassword: 'reset-password',
+        Login: 'login',
+        Signup: 'signup',
+        ForgotPassword: 'forgot-password',
+      },
+    },
+  };
 
   // Show AuthStack if no user, AppStack if user exists
   return (

@@ -9,6 +9,13 @@ const menuItems = [
     route: 'AreaCalculator',
     icon: '📏',
   },
+  {
+    id: 'hidden-video',
+    title: 'Hidden Video',
+    subtitle: 'Open stealth video recording workflow.',
+    route: 'HiddenVideo',
+    icon: '🎥',
+  },
 ];
 
 export default function OpenMenusScreen({ navigation }) {

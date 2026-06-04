@@ -86,9 +86,19 @@ export default function LoginScreen({ navigation }) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                    onPress={() => navigation?.navigate?.('ForgotPassword')}
+                    style={styles.forgotPasswordLink}
+                    activeOpacity={0.75}
+                    disabled={loading}
+                >
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                     onPress={() => navigation?.navigate?.('Signup')}
                     style={styles.signupLink}
                     activeOpacity={0.75}
+                    disabled={loading}
                 >
                     <Text style={styles.signupText}>
                         Don't have an account? <Text style={styles.signupTextBold}>Sign up</Text>
@@ -97,13 +107,15 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <View style={styles.footer}>
+                <View style={styles.divider} />
+                <Text style={styles.footerLabel}>Continue without login</Text>
                 <TouchableOpacity
                     onPress={() => navigation?.navigate?.('OpenMenus')}
                     style={styles.openMenusLink}
                     activeOpacity={0.75}
                 >
                     <Text style={styles.openMenusText}>
-                        Need tools without login? <Text style={styles.openMenusTextBold}>Open Menus</Text>
+                        Access <Text style={styles.openMenusTextBold}>Tools</Text>
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -172,6 +184,16 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 15,
     },
+    forgotPasswordLink: {
+        marginTop: 12,
+        alignItems: 'center',
+        paddingVertical: 6,
+    },
+    forgotPasswordText: {
+        color: '#1976D2',
+        fontSize: 13,
+        fontWeight: '500',
+    },
     signupLink: {
         marginTop: 16,
         alignItems: 'center',
@@ -186,6 +208,22 @@ const styles = StyleSheet.create({
     },
     footer: {
         alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#e0e0e0',
+        paddingTop: 16,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#e0e0e0',
+        marginBottom: 12,
+    },
+    footerLabel: {
+        fontSize: 12,
+        color: '#999',
+        marginBottom: 12,
+        fontWeight: '500',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     openMenusLink: {
         paddingVertical: 8,

@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
 import { saveFunctionsCache } from './cache';
+import { getFunctionStatus } from '@utils/statusHelper';
 
 const PAGE_SIZE = 10;
 
@@ -20,6 +21,13 @@ export async function getFunctions({
   filters = {},
 }) {
   await ensureOnline();
+
+  // Verify active auth session — RLS requires an authenticated user
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData?.user) {
+    console.warn('[getFunctions] No authenticated user — skipping fetch');
+    return { data: [], meta: { page, total: 0, hasMore: false } };
+  }
 
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -62,11 +70,14 @@ export async function getFunctions({
 
   const { data, count, error } = await query;
 
+  // Debug log — remove once data is confirmed loading
+  console.log('[getFunctions] fetch result:', { data, count, error, filters });
+
   if (error) {
     throw error;
   }
 
-  // Transform location_id to location object and category_id to category object
+  // Transform locations/categories join result to flat objects
   const transformedData = data?.map(item => ({
     ...item,
     location: item.locations || null,
@@ -75,7 +86,7 @@ export async function getFunctions({
     categories: undefined,
   })) || [];
 
-  // Cache successful response on every call (including empty arrays)
+  // Cache successful response
   await saveFunctionsCache(transformedData);
 
   return {
@@ -177,38 +188,37 @@ export async function getFunctionCounts() {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    const { count: total, error: totalError } = await supabase
+    const { data, error } = await supabase
       .from('functions')
-      .select('*', { count: 'exact', head: true });
+      .select('function_date, function_time');
 
-    if (totalError) throw totalError;
+    if (error) throw error;
 
-    const { count: upcoming, error: upcomingError } = await supabase
-      .from('functions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'upcoming');
+    let total = 0;
+    let upcoming = 0;
+    let completed = 0;
+    let todayCount = 0;
 
-    if (upcomingError) throw upcomingError;
-
-    const { count: completed, error: completedError } = await supabase
-      .from('functions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'completed');
-
-    if (completedError) throw completedError;
-
-    const { count: todayCount, error: todayError } = await supabase
-      .from('functions')
-      .select('*', { count: 'exact', head: true })
-      .eq('function_date', today);
-
-    if (todayError) throw todayError;
+    if (data) {
+      total = data.length;
+      data.forEach(item => {
+        const status = getFunctionStatus(item.function_date, item.function_time);
+        if (status.label === 'Upcoming') {
+          upcoming++;
+        } else if (status.label === 'Completed') {
+          completed++;
+        }
+        if (item.function_date === today) {
+          todayCount++;
+        }
+      });
+    }
 
     return {
-      total: total || 0,
-      upcoming: upcoming || 0,
-      completed: completed || 0,
-      today: todayCount || 0,
+      total,
+      upcoming,
+      completed,
+      today: todayCount,
     };
   } catch (error) {
     console.error('Error fetching function counts:', error);

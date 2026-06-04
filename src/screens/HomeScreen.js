@@ -20,8 +20,8 @@ const GAP = 12;
 const CARD_SIZE = (width - PADDING * 2 - GAP * 2) / 3;
 
 export default function HomeScreen({ navigation }) {
-const { user } = useAuth();
-console.log(user);
+  const { user } = useAuth();
+  console.log(user);
 
   const { translations } = useLanguage();
   const [stats, setStats] = useState({
@@ -74,16 +74,22 @@ console.log(user);
 
   const items = [
     {
+      id: 'my-functions',
+      label: 'My Functions',
+      icon: '📝',
+      onPress: () => navigation.navigate('MyFunctions'),
+    },
+    {
+      id: 'invitations',
+      label: 'Invitations',
+      icon: '📩',
+      onPress: () => navigation.navigate('Invitations'),
+    },
+    {
       id: 'categories',
       label: translations.functionCategories,
       icon: '📂',
       onPress: () => navigation.navigate('FunctionCategories'),
-    },
-    {
-      id: 'view',
-      label: translations.viewFunctions,
-      icon: '📋',
-      onPress: () => navigation.navigate('Functions'),
     },
     {
       id: 'calendar',

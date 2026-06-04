@@ -98,8 +98,21 @@ To learn more about React Native, take a look at the following resources:
 
 
 
+============================================================================
+
+AI Code editor contexts
+
+Read PROJECT_CONTEXT.md completely before making any changes.
+
+Follow all business rules, database rules, navigation rules, and development rules defined in PROJECT_CONTEXT.md.
+
+Do not create new documentation files.
+Do not redesign architecture.
+Prefer modifying existing files.
+Explain assumptions before major refactors.
 
 
+============================================================================
 
 
 npx react-native start --reset-cache
@@ -114,6 +127,7 @@ Take build:
 cd android
 .\gradlew assembleRelease
 
+D:\Stephen\Projects\FunctionTracker\android\app\build\outputs\apk\release
 
 “Secure api.js with user_id”
 

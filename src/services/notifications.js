@@ -1,4 +1,5 @@
-import notifee from '@notifee/react-native';
+import notifee, { AndroidImportance } from '@notifee/react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 
 const CHANNEL_ID = 'reminders';
 const CHANNEL_NAME = 'Reminders';
@@ -12,7 +13,7 @@ let channelCreated = false;
 export async function requestNotificationPermission() {
   try {
     const permission = await notifee.requestPermission();
-    
+
     // permission object has: granted (boolean), authorizationStatus (number)
     if (permission.granted) {
       console.log('[Notifications] Permission granted');
@@ -45,7 +46,7 @@ export async function createDefaultChannel() {
     await notifee.createChannel({
       id: CHANNEL_ID,
       name: CHANNEL_NAME,
-      importance: 4, // Importance.HIGH = 4
+      importance: AndroidImportance.HIGH, // HIGH importance for reliable Android notifications
     });
 
     channelCreated = true;
@@ -53,6 +54,27 @@ export async function createDefaultChannel() {
   } catch (error) {
     console.error('[Notifications] Failed to create channel:', error);
   }
+}
+
+/**
+ * Request Android 13+ POST_NOTIFICATIONS permission
+ */
+async function requestAndroidNotificationPermissionIfNeeded() {
+  if (Platform.OS !== 'android') return;
+  const sdk = Platform.Version;
+  if (sdk >= 33) {
+    try {
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+      console.log('[Notifications] Android 13+ POST_NOTIFICATIONS permission result:', result);
+      return result === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (e) {
+      console.warn('[Notifications] Error requesting POST_NOTIFICATIONS permission:', e);
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -67,10 +89,8 @@ export function getDefaultChannelId() {
  * @param {Object} fn - Function object with id, title, date, time, reminder_minutes
  */
 export async function scheduleFunctionReminder(fn) {
-    console.log('fn: ', fn);
-  // Minimum delay to avoid scheduling notifications too close to current time
-  const MIN_DELAY_MS = 5 * 60 * 1000; // 5 minutes
-  
+  console.log('[Notifications] fn:', fn);
+
   try {
     // Skip if no reminder is set
     if (!fn.reminder_minutes && fn.reminder_minutes !== 0) {
@@ -82,41 +102,33 @@ export async function scheduleFunctionReminder(fn) {
     const dateStr = fn.date || fn.function_date;
     const timeStr = fn.time || fn.function_time;
 
-    // Parse the function date and time
-    // Expected format: date = "YYYY-MM-DD", time = "HH:mm" or "HH:mm:ss"
+    // Parse the function date and time - combines date + time into valid Date object
     const functionDateTime = parseDateTime(dateStr, timeStr);
-    
-    console.log('[Notifications] Parsed date:', dateStr, 'time:', timeStr);
-    console.log('[Notifications] Parsed DateTime:', functionDateTime, 'Type:', typeof functionDateTime, 'isDate:', functionDateTime instanceof Date);
-    
+    console.log('[Notifications] functionDateTime:', functionDateTime);
+
     if (!functionDateTime || isNaN(functionDateTime.getTime())) {
       console.warn('[Notifications] Invalid date/time for function:', fn.id, 'dateStr:', dateStr, 'timeStr:', timeStr);
       return;
     }
 
-    // Calculate trigger time by subtracting reminder_minutes
-    const triggerTime = new Date(functionDateTime.getTime() - fn.reminder_minutes * 60000);
-    const now = new Date();
+    // Convert to timestamp in milliseconds and subtract reminder_minutes
+    // Use absolute timestamp trigger (not seconds-based)
+    const triggerTimeMs = functionDateTime.getTime() - fn.reminder_minutes * 60 * 1000;
+    const now = Date.now();
 
-    console.log('[Notifications] Function date/time:', functionDateTime, 'Reminder mins:', fn.reminder_minutes, 'Trigger time:', triggerTime, 'Now:', now);
+    console.log('[Notifications] triggerTime (ms):', triggerTimeMs, '-> ', new Date(triggerTimeMs).toString());
 
     // If trigger time is in the past, don't schedule
-    if (triggerTime < now) {
-      console.log('[Notifications] Trigger time in past, skipping:', fn.id, 'Trigger:', triggerTime, 'Now:', now);
+    if (triggerTimeMs <= now) {
+      console.log('[Notifications] Trigger time in past, skipping:', fn.id, 'Trigger:', new Date(triggerTimeMs), 'Now:', new Date(now));
       return;
     }
 
-    // Guard against scheduling notifications too close to current time
-    if (triggerTime.getTime() - now.getTime() < MIN_DELAY_MS) {
-      console.log('[Notifications] Trigger time too close (< 5 min), skipping:', fn.id);
-      return;
-    }
+    // Ensure Android channel and permissions
+    await createDefaultChannel();
+    await requestAndroidNotificationPermissionIfNeeded();
 
-    // Calculate milliseconds until notification should trigger
-    const millisecondsFromNow = triggerTime.getTime() - Date.now();
-
-    console.log('[Notifications] Will schedule notification in', Math.floor(millisecondsFromNow / 1000), 'seconds');
-
+    // Schedule notification with absolute timestamp trigger and AlarmManager for reliability
     await notifee.createTriggerNotification(
       {
         id: `function_${fn.id}`,
@@ -128,17 +140,20 @@ export async function scheduleFunctionReminder(fn) {
             id: 'default',
           },
           alarmManager: {
-            allowWhileIdle: true,
+            allowWhileIdle: true, // Ensures notification fires even when app is killed
           },
         },
       },
       {
-        type: 0, // TIMESTAMP type (triggers at absolute timestamp)
-        timestamp: triggerTime.getTime(), // Use absolute timestamp in milliseconds
+        type: 0, // TriggerType.TIMESTAMP - triggers at absolute timestamp
+        timestamp: triggerTimeMs, // Exact future time in milliseconds
+        alarmManager: {
+          allowWhileIdle: true, // AlarmManager will trigger even in doze mode
+        },
       }
     );
 
-    console.log('[Notifications] Scheduled reminder for function:', fn.id, 'at', triggerTime);
+    console.log('[Notifications] Scheduled reminder for function:', fn.id, 'at', new Date(triggerTimeMs));
   } catch (error) {
     console.error('[Notifications] Failed to schedule reminder:', error);
   }
@@ -159,12 +174,15 @@ export async function cancelFunctionReminder(functionId) {
 }
 
 /**
- * Helper: Parse date and time strings into a Date object
+ * Helper: Parse date and time strings into a valid Date object
+ * Combines function date + time into a valid Date object
  * @param {string} date - Date string "YYYY-MM-DD"
- * @param {string} time - Time string "HH:mm"
+ * @param {string} time - Time string "HH:mm" or "HH:mm:ss"
  * @returns {Date|null} Parsed Date object or null if invalid
  */
 function parseDateTime(date, time) {
+  console.log('[parseDateTime] input:', { date, time });
+
   if (!date || !time) return null;
 
   let datePart;
@@ -191,19 +209,29 @@ function parseDateTime(date, time) {
     return null;
   }
 
+  // Validate format
+  const dateMatch = /^\d{4}-\d{2}-\d{2}$/.test(datePart);
+  const timeMatch = /^\d{2}:\d{2}$/.test(timePart);
+  if (!dateMatch || !timeMatch) {
+    console.warn('[parseDateTime] Invalid format. Expected date=YYYY-MM-DD, time=HH:mm. Got:', datePart, timePart);
+    return null;
+  }
+
   // Parse as local time, not UTC
   // Create date in format "YYYY-MM-DD" and time in format "HH:mm"
   const [year, month, day] = datePart.split('-').map(Number);
   const [hours, minutes] = timePart.split(':').map(Number);
-  
+
+  // Build new Date with local time (no timezone mismatch)
   const dateTime = new Date(year, month - 1, day, hours, minutes, 0);
-  
+
   // Validate the date was created successfully
   if (isNaN(dateTime.getTime())) {
-    console.warn('[parseDateTime] Failed to parse:', datePart, timePart);
+    console.warn('[parseDateTime] Failed to parse - produced invalid Date:', datePart, timePart);
     return null;
   }
 
+  console.log('[parseDateTime] ->', dateTime.toString(), 'timestamp:', dateTime.getTime());
   return dateTime;
 }
 

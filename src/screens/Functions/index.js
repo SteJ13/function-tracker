@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView,
   Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,6 +18,7 @@ import { formatDisplayDate, formatDisplayTime } from '@utils';
 import { loadFunctionsCache } from './cache';
 import useFunctionActions from './useFunctionActions';
 import { useNetwork } from '@context/NetworkContext';
+import { getFunctionStatus } from '@utils/statusHelper';
 
 const PAGE_SIZE = 10;
 const FUNCTION_TABS = [
@@ -286,8 +286,9 @@ export default function FunctionListScreen({ navigation, route }) {
       const displayDate = formatDisplayDate(item.function_date);
       const displayTime = formatDisplayTime(
         item.function_date,
-        item.function_time || item.time
+        item.function_time
       );
+      const status = getFunctionStatus(item.function_date, item.function_time);
 
       return (
         <TouchableOpacity
@@ -299,9 +300,9 @@ export default function FunctionListScreen({ navigation, route }) {
             <Text style={styles.title} numberOfLines={2}>
               {item.title}
             </Text>
-            <View style={[styles.badge, styles[`badge_${item.status}`]]}>
+            <View style={[styles.badge, { backgroundColor: status.color }]}>
               <Text style={styles.badgeText}>
-                {item.status}
+                {status.label}
               </Text>
             </View>
           </View>

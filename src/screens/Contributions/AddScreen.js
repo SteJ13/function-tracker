@@ -397,6 +397,46 @@ export default function AddContributionScreen({ navigation, route }) {
 					voice={false}
 				/>
 
+				{matchedContribution && (
+					<View style={styles.matchCard}>
+						<Text style={styles.matchTitle}>Previous Contribution Found</Text>
+						<Text style={styles.matchName}>
+							{matchedContribution.person_name}
+							{matchedContribution.family_name ? ` (${matchedContribution.family_name})` : ''}
+						</Text>
+						<Text style={styles.matchPlace}>
+							{matchedContribution.locations?.name
+								? (matchedContribution.locations?.tamil_name
+									? `${matchedContribution.locations.name} · ${matchedContribution.locations.tamil_name}`
+									: matchedContribution.locations.name)
+								: 'Unknown location'}
+						</Text>
+						<Text style={styles.matchAmount}>
+							{matchedContribution.contribution_type === 'gold'
+								? `${matchedContribution.amount} grams`
+								: `₹${parseFloat(matchedContribution.amount).toLocaleString('en-IN')}`}
+						</Text>
+						<Text style={styles.matchFunction}>
+							Received at: {matchedContribution.functions?.title}
+						</Text>
+						{matchedContribution.returned ? (
+							<View style={styles.matchReturnedLabel}>
+								<Text style={styles.matchReturnedLabelText}>✓ Marked as Returned</Text>
+							</View>
+						) : (
+							<TouchableOpacity
+								style={[styles.matchReturnButton, markingLoading && styles.matchReturnButtonDisabled]}
+								onPress={handleMarkAsReturned}
+								disabled={markingLoading}
+							>
+								<Text style={styles.matchReturnButtonText}>
+									{markingLoading ? 'Marking...' : 'Mark as Returned'}
+								</Text>
+							</TouchableOpacity>
+						)}
+					</View>
+				)}
+
 				{functionType === 'INVITATION' && suggestions.length > 0 && !selectedSuggestion ? (
 					<View style={styles.suggestionsContainer}>
 						<Text style={styles.suggestionsTitle}>💡 Smart Suggestions</Text>

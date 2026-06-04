@@ -1,4 +1,5 @@
 {
   "name": "FunctionTracker",
-  "displayName": "FunctionTracker"
+  "displayName": "FunctionTracker",
+  "scheme": "yourapp"
 }

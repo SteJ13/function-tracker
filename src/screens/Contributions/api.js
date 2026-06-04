@@ -135,7 +135,7 @@ export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQue
   let query = supabase
     .from('contributions')
     .select(
-      'id, person_name, family_name, spouse_name, amount, contribution_type, returned, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date, function_type)',
+      'id, person_name, family_name, spouse_name, amount, contribution_type, returned, created_at, locations:place_id(id, name, tamil_name), functions!inner(id, title, function_date, function_type)',
       { count: 'exact' }
     )
     .eq('direction', 'GIVEN_TO_ME')
@@ -184,11 +184,12 @@ export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQ
   let query = supabase
     .from('contributions')
     .select(
-      'id, person_name, family_name, spouse_name, amount, contribution_type, returned_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date)',
+      'id, person_name, family_name, spouse_name, amount, contribution_type, returned_at, locations:place_id(id, name, tamil_name), functions!inner(id, title, function_date, function_type)',
       { count: 'exact' }
     )
     .eq('returned', true)
     .eq('direction', 'GIVEN_TO_ME')
+    .eq('functions.function_type', 'MY_FUNCTION')
     .order('returned_at', { ascending: false });
 
   // Add search filters if query provided
@@ -233,11 +234,12 @@ export async function getSuggestions({ personName, familyName, placeId }) {
   let query = supabase
     .from('contributions')
     .select(
-      'id, person_name, family_name, amount, contribution_type, spouse_name, created_at, locations:place_id(id, name, tamil_name), functions(id, title, function_date), notes'
+      'id, person_name, family_name, amount, contribution_type, spouse_name, created_at, locations:place_id(id, name, tamil_name), functions!inner(id, title, function_date, function_type), notes'
     )
     .eq('direction', 'GIVEN_TO_ME')
     .eq('returned', false)
     .eq('place_id', placeId)
+    .eq('functions.function_type', 'MY_FUNCTION')
     .ilike('person_name', `%${personName}%`)
     .order('created_at', { ascending: false })
     .limit(5);
