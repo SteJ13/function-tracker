@@ -7,12 +7,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Linking
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 
+import { formatDate, formatTime } from '@utils';
+import { buildGoogleCalendarUrl } from '@utils/calendarHelper';
 import { getFunctionById } from './api';
 import useFunctionActions from './useFunctionActions';
 import { supabase } from '@services/supabaseClient';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 export default function FunctionDetailScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
@@ -29,7 +33,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
       try {
         setLoading(true);
         setError(null);
-        
+
         if (!functionId) {
           throw new Error('Missing function ID');
         }
@@ -43,8 +47,8 @@ export default function FunctionDetailScreen({ navigation, route }) {
       } catch (error) {
         console.error('[FunctionDetail] Load error:', error);
         setError(error.message || 'Failed to load function');
-        Toast.show({ 
-          type: 'error', 
+        Toast.show({
+          type: 'error',
           text1: 'Error',
           text2: error.message || 'Failed to load function'
         });
@@ -59,7 +63,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
   // Load contribution for INVITATION functions
   useEffect(() => {
     const loadContribution = async () => {
-      if (!functionData || functionData.function_type !== 'INVITATION') {
+      if (!functionData || functionData.function_type !== FUNCTION_TYPES.INVITATION) {
         setContribution(null);
         return;
       }
@@ -117,7 +121,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
 
   const handleDelete = useCallback(() => {
     if (!functionData) return;
-    
+
     Alert.alert(
       'Delete Function',
       `Are you sure you want to delete "${functionData?.title}"?`,
@@ -149,6 +153,29 @@ export default function FunctionDetailScreen({ navigation, route }) {
     );
   }, [functionId, functionData, deleteFunction, navigation]);
 
+  const handleAddToCalendar = useCallback(async () => {
+    try {
+      const startDate = new Date(
+        `${functionData.function_date}T${functionData.function_time || '09:00'}`
+      );
+
+      const endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 2);
+
+      const url = buildGoogleCalendarUrl({
+        title: functionData.title,
+        description: functionData.notes || '',
+        location: functionData.location?.name || '',
+        startDate,
+        endDate,
+      });
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('[Calendar]', error);
+    }
+  }, [functionData]);
+
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -163,7 +190,7 @@ export default function FunctionDetailScreen({ navigation, route }) {
       <View style={styles.errorContainer}>
         <Text style={styles.errorIcon}>⚠️</Text>
         <Text style={styles.errorText}>{error || 'Function not found'}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -190,28 +217,6 @@ export default function FunctionDetailScreen({ navigation, route }) {
     }
   };
 
-  // Format date from YYYY-MM-DD
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch (error) {
-      return dateStr;
-    }
-  };
-
-  // Format time from HH:mm:ss to HH:mm
-  const formatTime = (timeStr) => {
-    if (!timeStr) return 'N/A';
-    return timeStr.substring(0, 5);
-  };
-
   return (
     <ScrollView
       style={styles.container}
@@ -222,83 +227,25 @@ export default function FunctionDetailScreen({ navigation, route }) {
       <View style={styles.headerSection}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{functionData.title || 'Untitled'}</Text>
+        </View>
+        <View style={styles.typeStatusRow}>
           {functionData.function_type && (
-            <View style={[styles.typeBadge, functionData.function_type === 'INVITATION' ? styles.typeBadgeInvitation : styles.typeBadgeMyFunction]}>
+            <View style={[styles.typeBadge, functionData.function_type === FUNCTION_TYPES.INVITATION ? styles.typeBadgeInvitation : styles.typeBadgeMyFunction]}>
               <Text style={styles.typeBadgeText}>
-                {functionData.function_type === 'INVITATION' ? '👤 Invitation' : '📋 My Function'}
+                {functionData.function_type === FUNCTION_TYPES.INVITATION ? '👤 Invitation' : '📋 My Function'}
               </Text>
             </View>
           )}
-        </View>
-        <View style={[styles.statusBadge, getStatusStyle(functionData.status)]}>
-          <Text style={styles.statusText}>
-            {functionData.status ? functionData.status.charAt(0).toUpperCase() + functionData.status.slice(1) : 'Unknown'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Date & Time Section */}
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
-          <Text style={styles.cardLabel}>Date</Text>
-          <Text style={styles.cardValue}>
-            {formatDate(functionData.function_date)}
-          </Text>
-        </View>
-        <View style={styles.cardRow}>
-          <Text style={styles.cardLabel}>Time</Text>
-          <Text style={styles.cardValue}>
-            {formatTime(functionData.function_time)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Category Section */}
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
-          <Text style={styles.cardLabel}>Category</Text>
-          <Text style={styles.cardValue}>{functionData.category?.name || 'Unknown Category'}</Text>
-        </View>
-      </View>
-
-      {/* Location Section */}
-      {functionData.location ? (
-        <View style={styles.card}>
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Location</Text>
-            <Text style={styles.cardValue}>{functionData.location.name || 'Unknown Location'}</Text>
+          <View style={[styles.statusBadge, getStatusStyle(functionData.status)]}>
+            <Text style={styles.statusText}>
+              {functionData.status ? functionData.status.charAt(0).toUpperCase() + functionData.status.slice(1) : 'Unknown'}
+            </Text>
           </View>
         </View>
-      ) : null}
-
-      {/* Notes Section */}
-      {functionData.notes ? (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Notes</Text>
-          <Text style={styles.notesText}>{functionData.notes}</Text>
-        </View>
-      ) : null}
-
-      {/* Metadata Section */}
-      <View style={styles.metadataSection}>
-        <Text style={styles.metaText}>
-          Created: {new Date(functionData.created_at).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Text>
-        <Text style={styles.metaText}>
-          Updated: {new Date(functionData.updated_at).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Text>
       </View>
 
       {/* Your Contribution Section for INVITATION functions */}
-      {functionData?.function_type === 'INVITATION' && (
+      {functionData?.function_type === FUNCTION_TYPES.INVITATION && (
         <View>
           <Text style={styles.sectionTitle}>👤 Your Contribution</Text>
           {loadingContribution ? (
@@ -366,22 +313,97 @@ export default function FunctionDetailScreen({ navigation, route }) {
         </View>
       )}
 
+      {/* Date & Time Section */}
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>Date & Time</Text>
+          <Text style={styles.cardValue}>
+            {formatDate(functionData.function_date)} - {formatTime(functionData.function_time)}
+          </Text>
+        </View>
+
+      </View>
+
+      {/* Category Section */}
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>Category</Text>
+          <Text style={styles.cardValue}>{functionData.category?.name || 'Unknown Category'}</Text>
+        </View>
+      </View>
+
+      {/* Location Section */}
+      {functionData.location ? (
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Location</Text>
+            <Text style={styles.cardValue}>{functionData.location.name || 'Unknown Location'}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Notes Section */}
+      {functionData.notes ? (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Notes</Text>
+          <Text style={styles.notesText}>{functionData.notes}</Text>
+        </View>
+      ) : null}
+
+      {/* Metadata Section */}
+      <View style={styles.metadataSection}>
+        <Text style={styles.metaText}>
+          Created: {new Date(functionData.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
+        <Text style={styles.metaText}>
+          Updated: {new Date(functionData.updated_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
+      </View>
+
       {/* View Contributions Button */}
-      <TouchableOpacity
-        style={[styles.button, styles.viewContributionsButton]}
-        onPress={handleViewContributions}
-      >
-        <Text style={styles.buttonText}>View Contributions</Text>
-      </TouchableOpacity>
+      {functionData?.function_type !== FUNCTION_TYPES.INVITATION && (
+        <TouchableOpacity
+          style={[styles.button, styles.viewContributionsButton]}
+          onPress={handleViewContributions}
+        >
+          <Text style={styles.buttonText}>View Contributions</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Action Buttons */}
+      {functionData?.function_type === FUNCTION_TYPES.INVITATION && (
+        <TouchableOpacity
+          style={[styles.button, styles.calendarButton]}
+          onPress={handleAddToCalendar}
+        >
+          <Text style={styles.buttonText}>
+            📅 Add to Calendar
+          </Text>
+        </TouchableOpacity>
+      )}
       <View style={styles.actions}>
         <TouchableOpacity style={[styles.button, styles.editButton]} onPress={handleEdit}>
-          <Text style={styles.buttonText}>Edit</Text>
+          <Text style={styles.buttonText}>
+            {functionData?.function_type === FUNCTION_TYPES.INVITATION
+              ? 'Edit Invitation'
+              : 'Edit'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={handleDelete}>
-          <Text style={styles.buttonText}>Delete</Text>
+          <Text style={styles.buttonText}>
+            {functionData?.function_type === FUNCTION_TYPES.INVITATION
+              ? 'Delete Invitation'
+              : 'Delete'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -445,7 +467,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   titleRow: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   title: {
     fontSize: 28,
@@ -474,7 +496,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 5,
     borderRadius: 20,
   },
   statusBadgeUpcoming: {
@@ -493,7 +515,12 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
 
-  /* Card Sections */
+  typeStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -668,5 +695,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  calendarButton: {
+    backgroundColor: '#FF9800',
+    marginBottom: 16,
   },
 });

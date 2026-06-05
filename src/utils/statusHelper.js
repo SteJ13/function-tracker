@@ -11,9 +11,17 @@ export function getFunctionStatus(functionDate, functionTime) {
         };
     }
 
+    console.log('Status Check');
+    console.log('function_date:', functionDate);
+    console.log('function_time:', functionTime);
+    console.log('now:', new Date());
     try {
         // Parse date and time into a Date object
-        const functionDateTime = new Date(`${functionDate}T${functionTime}:00`);
+        const dateTimeString = `${functionDate}T${functionTime}`;
+        const functionDateTime = new Date(dateTimeString);
+
+        console.log('dateTimeString:', dateTimeString);
+        console.log('parsedDate:', functionDateTime);
 
         if (isNaN(functionDateTime.getTime())) {
             console.warn('[getFunctionStatus] Invalid date/time:', functionDate, functionTime);

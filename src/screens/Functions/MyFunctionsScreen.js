@@ -4,7 +4,6 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    Alert,
     Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,9 +15,10 @@ import { getFunctions } from './api';
 import { getCategories } from '../FunctionCategories/api';
 import { formatDisplayDate, formatDisplayTime } from '@utils';
 import { loadFunctionsCache } from './cache';
-import useFunctionActions from './useFunctionActions';
 import { useNetwork } from '@context/NetworkContext';
+import FunctionCard from '@components/FunctionCard';
 import { getFunctionStatus, sortFunctionsByStatus } from '@utils/statusHelper';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const PAGE_SIZE = 10;
 
@@ -34,7 +34,6 @@ export default function MyFunctionsScreen({ navigation }) {
         from_date: undefined,
         to_date: undefined,
     });
-    const { deleteFunction: deleteFunctionAction } = useFunctionActions();
 
     // Load categories on mount
     useEffect(() => {
@@ -65,7 +64,7 @@ export default function MyFunctionsScreen({ navigation }) {
         try {
             const cachedData = await loadFunctionsCache();
             if (cachedData) {
-                const myFunctions = cachedData.filter(f => f.function_type === 'MY_FUNCTION');
+                const myFunctions = cachedData.filter(f => f.function_type === FUNCTION_TYPES.MY_FUNCTION);
                 const sorted = sortFunctionsByStatus(myFunctions);
                 setData(sorted);
                 Toast.show({
@@ -127,7 +126,7 @@ export default function MyFunctionsScreen({ navigation }) {
                 location_id: advancedFilters.location_id,
                 from_date: advancedFilters.from_date,
                 to_date: advancedFilters.to_date,
-                function_type: 'MY_FUNCTION', // Only MY_FUNCTION type
+                function_type: FUNCTION_TYPES.MY_FUNCTION, // Only MY_FUNCTION type
             },
         });
 
@@ -188,52 +187,6 @@ export default function MyFunctionsScreen({ navigation }) {
         });
     }, []);
 
-    // Delete function
-    const handleDelete = useCallback(
-        item => {
-            if (!isOnline) {
-                Toast.show({
-                    type: 'info',
-                    text1: 'Add, Edit and Delete are disabled while offline.',
-                });
-                return;
-            }
-
-            Alert.alert(
-                'Delete Function',
-                `Are you sure you want to delete "${item.title}"?`,
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel',
-                    },
-                    {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: async () => {
-                            try {
-                                const functionId = item.id;
-                                await deleteFunctionAction(functionId);
-                                setData(prevData => prevData.filter(f => f.id !== functionId));
-                                Toast.show({
-                                    type: 'success',
-                                    text1: 'Function deleted',
-                                });
-                            } catch (error) {
-                                Toast.show({
-                                    type: 'error',
-                                    text1: 'Failed to delete function',
-                                    text2: error?.message,
-                                });
-                            }
-                        },
-                    },
-                ]
-            );
-        },
-        [deleteFunctionAction, isOnline]
-    );
-
     // Navigate to detail
     const handlePress = useCallback(
         item => {
@@ -242,68 +195,37 @@ export default function MyFunctionsScreen({ navigation }) {
         [navigation]
     );
 
-    // Navigate to edit
-    const handleEdit = useCallback(
-        item => {
-            if (!isOnline) {
-                Toast.show({
-                    type: 'info',
-                    text1: 'Add, Edit and Delete are disabled while offline.',
-                });
-                return;
-            }
-            navigation.navigate('FunctionForm', { functionId: item.id });
-        },
-        [navigation, isOnline]
-    );
-
     // Render item with computed status
     const renderItem = useCallback(
         ({ item }) => {
             const displayDate = formatDisplayDate(item.function_date);
-            const displayTime = formatDisplayTime(item.function_date, item.function_time);
-            const status = getFunctionStatus(item.function_date, item.function_time);
+            const displayTime = formatDisplayTime(
+                item.function_date,
+                item.function_time
+            );
+
+            const status = getFunctionStatus(
+                item.function_date,
+                item.function_time
+            );
 
             return (
-                <TouchableOpacity
-                    style={styles.card}
-                    onPress={() => handlePress(item)}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.title} numberOfLines={2}>
-                            {item.title}
-                        </Text>
-                        <View style={[styles.badge, { backgroundColor: status.color }]}>
-                            <Text style={styles.badgeText}>
-                                {status.label}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.cardBody}>
-                        <Text style={styles.date}>
-                            📅 {displayDate}{displayTime ? ` at ${displayTime}` : ''}
-                        </Text>
-                        {item.location?.name && (
-                            <Text style={styles.location} numberOfLines={1}>
-                                📍 {item.location.name}
-                            </Text>
-                        )}
-                    </View>
-
-                    <View style={styles.actions}>
-                        <TouchableOpacity
-                            style={[styles.viewContributionsButton]}
-                            onPress={() => navigation.navigate('ContributionsList', { functionId: item.id })}
-                        >
-                            <Text style={styles.viewContributionsButtonText}>View Contributions</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
+                <FunctionCard
+                    item={item}
+                    status={status}
+                    displayDate={displayDate}
+                    displayTime={displayTime}
+                    onPress={handlePress}
+                    showContributionsButton={true}
+                    onViewContributions={(selectedItem) =>
+                        navigation.navigate('ContributionsList', {
+                            functionId: selectedItem.id,
+                        })
+                    }
+                />
             );
         },
-        [handlePress, handleEdit, handleDelete, isOnline]
+        [handlePress, navigation]
     );
 
     // Check active filters
@@ -433,74 +355,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    card: {
-        backgroundColor: '#FFF',
-        marginHorizontal: 16,
-        marginVertical: 8,
-        borderRadius: 12,
-        padding: 16,
-        elevation: 2,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    title: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
-        marginRight: 8,
-    },
-    badge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    badgeText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    cardBody: {
-        marginBottom: 12,
-    },
-    date: {
-        fontSize: 13,
-        color: '#555',
-        marginBottom: 4,
-    },
-    location: {
-        fontSize: 13,
-        color: '#555',
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionBtn: {
-        flex: 1,
-        paddingVertical: 8,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    actionBtnDisabled: {
-        opacity: 0.5,
-    },
-    edit: {
-        backgroundColor: '#E3F2FD',
-    },
-    delete: {
-        backgroundColor: '#FFEBEE',
-    },
-    actionText: {
-        fontSize: 12,
-        fontWeight: '600',
-    },
+
     empty: {
         flex: 1,
         justifyContent: 'center',
@@ -523,19 +378,6 @@ const styles = StyleSheet.create({
         color: '#999',
         textAlign: 'center',
         marginBottom: 16,
-    },
-    viewContributionsButton: {
-        backgroundColor: '#1976D2',
-        height: 40,
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    viewContributionsButtonText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-        fontSize: 14,
     },
     fab: {
         position: 'absolute',

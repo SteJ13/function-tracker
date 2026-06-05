@@ -29,3 +29,22 @@ export const formatDisplayTime = (dateString, timeString) => {
 
 	return timeString;
 };
+export const formatDate = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch (error) {
+    return dateStr;
+  }
+};
+
+export const formatTime = (timeStr) => {
+  if (!timeStr) return 'N/A';
+  return timeStr.substring(0, 5);
+};

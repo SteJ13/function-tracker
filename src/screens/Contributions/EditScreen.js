@@ -9,7 +9,7 @@ import {
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 
-import { Input, RHFLocationInput } from '@components/FormInputs';
+import { Input, RHFFamilyNameInput, RHFLocationInput } from '@components/FormInputs';
 import { useAuth } from '@context/AuthContext';
 import { updateContribution } from './api';
 
@@ -107,12 +107,11 @@ export default function EditContributionScreen({ navigation, route }) {
           rules={{ required: 'Location is required' }}
         />
 
-        <Input
+        <RHFFamilyNameInput
           name="family_name"
           label="Family Name"
           control={control}
-          placeholder="Optional"
-          voice={false}
+          placeholder="Search or enter family name"
         />
 
         <Input

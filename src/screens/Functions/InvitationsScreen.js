@@ -19,7 +19,9 @@ import { formatDisplayDate, formatDisplayTime } from '@utils';
 import { loadFunctionsCache } from './cache';
 import useFunctionActions from './useFunctionActions';
 import { useNetwork } from '@context/NetworkContext';
+import FunctionCard from '@components/FunctionCard';
 import { getFunctionStatus, sortFunctionsByStatus } from '@utils/statusHelper';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const PAGE_SIZE = 10;
 
@@ -66,7 +68,7 @@ export default function InvitationsScreen({ navigation }) {
         try {
             const cachedData = await loadFunctionsCache();
             if (cachedData) {
-                const invitations = cachedData.filter(f => f.function_type === 'INVITATION');
+                const invitations = cachedData.filter(f => f.function_type === FUNCTION_TYPES.INVITATION);
                 const sorted = sortFunctionsByStatus(invitations);
                 setData(sorted);
                 Toast.show({
@@ -128,7 +130,7 @@ export default function InvitationsScreen({ navigation }) {
                 location_id: advancedFilters.location_id,
                 from_date: advancedFilters.from_date,
                 to_date: advancedFilters.to_date,
-                function_type: 'INVITATION', // Only INVITATION type
+                function_type: FUNCTION_TYPES.INVITATION, // Only INVITATION type
             },
         });
 
@@ -278,66 +280,31 @@ export default function InvitationsScreen({ navigation }) {
     const renderItem = useCallback(
         ({ item }) => {
             const displayDate = formatDisplayDate(item.function_date);
-            const displayTime = formatDisplayTime(item.function_date, item.function_time);
-            const status = getFunctionStatus(item.function_date, item.function_time);
+
+            const displayTime = formatDisplayTime(
+                item.function_date,
+                item.function_time
+            );
+
+            const status = getFunctionStatus(
+                item.function_date,
+                item.function_time
+            );
 
             return (
-                <TouchableOpacity
-                    style={styles.card}
-                    onPress={() => handlePress(item)}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.title} numberOfLines={2}>
-                            {item.title}
-                        </Text>
-                        <View style={[styles.badge, { backgroundColor: status.color }]}>
-                            <Text style={styles.badgeText}>
-                                {status.label}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.cardBody}>
-                        <Text style={styles.date}>
-                            📅 {displayDate}{displayTime ? ` at ${displayTime}` : ''}
-                        </Text>
-                        {item.location?.name && (
-                            <Text style={styles.location} numberOfLines={1}>
-                                📍 {item.location.name}
-                            </Text>
-                        )}
-                    </View>
-
-                    <View style={styles.actions}>
-                        <TouchableOpacity
-                            style={[
-                                styles.actionBtn,
-                                styles.edit,
-                                isOnline ? {} : styles.actionBtnDisabled,
-                            ]}
-                            onPress={() => handleEdit(item)}
-                            disabled={!isOnline}
-                        >
-                            <Text style={styles.actionText}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.actionBtn,
-                                styles.delete,
-                                isOnline ? {} : styles.actionBtnDisabled,
-                            ]}
-                            onPress={() => handleDelete(item)}
-                            disabled={!isOnline}
-                        >
-                            <Text style={styles.actionText}>Remove</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
+                <FunctionCard
+                    item={item}
+                    status={status}
+                    displayDate={displayDate}
+                    displayTime={displayTime}
+                    onPress={handlePress}
+                    showEditDeleteButtons={true}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                />
             );
         },
-        [handlePress, handleEdit, handleDelete, isOnline]
+        [handlePress, handleEdit, handleDelete]
     );
 
     // Check active filters
@@ -434,7 +401,7 @@ export default function InvitationsScreen({ navigation }) {
                 style={styles.fab}
                 onPress={() => {
                     if (isOnline) {
-                        navigation.navigate('FunctionForm', { function_type: 'INVITATION' });
+                        navigation.navigate('FunctionForm', { function_type: FUNCTION_TYPES.INVITATION });
                     } else {
                         Toast.show({
                             type: 'info',
@@ -478,27 +445,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    card: {
-        backgroundColor: '#FFF',
-        marginHorizontal: 16,
-        marginVertical: 8,
-        borderRadius: 12,
-        padding: 16,
-        elevation: 2,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    title: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
-        marginRight: 8,
-    },
     optionButton: {
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -506,53 +452,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#d0d0d0',
         backgroundColor: '#fff',
-    },
-    badge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    badgeText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    cardBody: {
-        marginBottom: 12,
-    },
-    date: {
-        fontSize: 13,
-        color: '#555',
-        marginBottom: 4,
-    },
-    location: {
-        fontSize: 13,
-        color: '#555',
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionBtn: {
-        flex: 1,
-        paddingVertical: 8,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    actionBtnDisabled: {
-        opacity: 0.5,
-    },
-    edit: {
-        backgroundColor: '#E3F2FD',
-    },
-    delete: {
-        backgroundColor: '#FFEBEE',
-    },
-    actionText: {
-        fontSize: 12,
-        fontWeight: '600',
     },
     empty: {
         flex: 1,

@@ -1,6 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const PAGE_SIZE = 10;
 
@@ -140,7 +141,7 @@ export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQue
     )
     .eq('direction', 'GIVEN_TO_ME')
     .eq('returned', false)
-    .eq('functions.function_type', 'MY_FUNCTION')
+    .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -189,7 +190,7 @@ export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQ
     )
     .eq('returned', true)
     .eq('direction', 'GIVEN_TO_ME')
-    .eq('functions.function_type', 'MY_FUNCTION')
+    .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
     .order('returned_at', { ascending: false });
 
   // Add search filters if query provided
@@ -239,7 +240,7 @@ export async function getSuggestions({ personName, familyName, placeId }) {
     .eq('direction', 'GIVEN_TO_ME')
     .eq('returned', false)
     .eq('place_id', placeId)
-    .eq('functions.function_type', 'MY_FUNCTION')
+    .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
     .ilike('person_name', `%${personName}%`)
     .order('created_at', { ascending: false })
     .limit(5);

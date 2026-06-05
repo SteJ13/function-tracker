@@ -10,11 +10,12 @@ import {
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 
-import { Input, RHFLocationInput } from '@components/FormInputs';
+import { Input, RHFFamilyNameInput, RHFLocationInput } from '@components/FormInputs';
 import { useAuth } from '@context/AuthContext';
 import { useLanguage } from '@context/LanguageContext';
 import { supabase } from '@services/supabaseClient';
 import { markContributionReturned, getSuggestions } from './api';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const CONTRIBUTION_TYPES = [
 	{ value: 'cash', label: 'Cash' },
@@ -24,6 +25,8 @@ const CONTRIBUTION_TYPES = [
 export default function AddContributionScreen({ navigation, route }) {
 	const functionId = route?.params?.functionId;
 	const source = route?.params?.source;
+	const invitationLocationId = route?.params?.locationId;
+
 	const { user } = useAuth();
 	const { translations } = useLanguage();
 	const [submitting, setSubmitting] = useState(false);
@@ -47,7 +50,7 @@ export default function AddContributionScreen({ navigation, route }) {
 		formState: { isSubmitting },
 	} = useForm({
 		defaultValues: {
-			place_id: null,
+			place_id: invitationLocationId || null,
 			family_name: '',
 			person_name: '',
 			spouse_name: '',
@@ -56,6 +59,23 @@ export default function AddContributionScreen({ navigation, route }) {
 			notes: '',
 		},
 	});
+
+	useEffect(() => {
+		if (
+			source === FUNCTION_TYPES.INVITATION &&
+			invitationLocationId
+		) {
+			setValue(
+				'place_id',
+				invitationLocationId,
+				{ shouldValidate: true }
+			);
+		}
+	}, [
+		source,
+		invitationLocationId,
+		setValue,
+	]);
 
 	useEffect(() => {
 		if (!functionId) {
@@ -130,11 +150,9 @@ export default function AddContributionScreen({ navigation, route }) {
 				});
 
 				if (exitAfter) {
-					if (source === 'INVITATION') {
-						// Navigate to Functions list with Invitations tab
-						navigation.reset({
-							index: 0,
-							routes: [{ name: 'Home' }, { name: 'Functions', params: { initialTab: 'invitations' } }],
+					if (source === FUNCTION_TYPES.INVITATION) {
+						navigation.replace('FunctionDetail', {
+							functionId,
 						});
 					} else {
 						navigation.goBack();
@@ -240,7 +258,7 @@ export default function AddContributionScreen({ navigation, route }) {
 			? suggestion.amount
 			: suggestion.amount;
 		// setValue('amount', amountDisplay.toString(), { shouldValidate: true });
-		reset(prev=>({
+		reset(prev => ({
 			...prev,
 			family_name: suggestion.family_name || '',
 			person_name: suggestion.person_name || '',
@@ -258,7 +276,7 @@ export default function AddContributionScreen({ navigation, route }) {
 	const watchFamilyName = watch('family_name');
 
 	useEffect(() => {
-		if (functionType !== 'INVITATION') {
+		if (functionType !== FUNCTION_TYPES.INVITATION) {
 			setMatchedContribution(null);
 			setSuggestions([]);
 			return;
@@ -319,7 +337,7 @@ export default function AddContributionScreen({ navigation, route }) {
 
 	// Suggestions for smart inviting
 	useEffect(() => {
-		if (functionType !== 'INVITATION') {
+		if (functionType !== FUNCTION_TYPES.INVITATION) {
 			setSuggestions([]);
 			return;
 		}
@@ -370,21 +388,23 @@ export default function AddContributionScreen({ navigation, route }) {
 			<Text style={styles.title}>Add Contribution</Text>
 
 			<View style={styles.formCard}>
-				<RHFLocationInput
-					name="place_id"
-					control={control}
-					label="Location"
-					placeholder="Search or select location"
-					required
-					rules={{ required: 'Location is required' }}
-				/>
+				{source !== FUNCTION_TYPES.INVITATION && (
+					<RHFLocationInput
+						name="place_id"
+						control={control}
+						label="Location"
+						placeholder="Search or select location"
+						required
+						rules={{ required: 'Location is required' }}
+					/>
+				)}
 
-				<Input
+
+				<RHFFamilyNameInput
 					name="family_name"
 					label="Family Name"
 					control={control}
-					placeholder="Optional"
-					voice={false}
+					placeholder="Search or enter family name"
 				/>
 
 				<Input
@@ -437,7 +457,7 @@ export default function AddContributionScreen({ navigation, route }) {
 					</View>
 				)}
 
-				{functionType === 'INVITATION' && suggestions.length > 0 && !selectedSuggestion ? (
+				{functionType === FUNCTION_TYPES.INVITATION && suggestions.length > 0 && !selectedSuggestion ? (
 					<View style={styles.suggestionsContainer}>
 						<Text style={styles.suggestionsTitle}>💡 Smart Suggestions</Text>
 						{suggestions.map((sugg, index) => {
@@ -450,7 +470,7 @@ export default function AddContributionScreen({ navigation, route }) {
 							const functionDate = sugg.functions?.function_date
 								? new Date(sugg.functions.function_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 								: '';
-							
+
 							return (
 								<TouchableOpacity
 									key={sugg.id}
@@ -549,7 +569,7 @@ export default function AddContributionScreen({ navigation, route }) {
 					<Text style={styles.buttonText}>Cancel</Text>
 				</TouchableOpacity>
 
-				{source !== 'INVITATION' && (
+				{source !== FUNCTION_TYPES.INVITATION && (
 					<TouchableOpacity
 						style={[styles.button, styles.nextButton]}
 						onPress={handleSubmit(onSaveAndAddNext)}
@@ -770,7 +790,7 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 		borderWidth: 1,
 		borderColor: '#ddd',
-		overflow: 'hidden',
+		overflow: 'visible',
 		marginBottom: 16,
 	},
 	typeOption: {

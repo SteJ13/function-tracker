@@ -11,6 +11,7 @@ import { useLanguage } from '@context/LanguageContext';
 import { getFunctionCounts } from '@screens/Functions/api';
 import { useAuth } from '@context/AuthContext';
 import { supabase } from '@services/supabaseClient';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const { width } = Dimensions.get('window');
 const PADDING = 16;
@@ -63,7 +64,7 @@ export default function HomeScreen({ navigation }) {
       .select('amount, functions!inner(function_type)')
       .eq('direction', 'GIVEN_TO_ME')
       .eq('returned', false)
-      .eq('functions.function_type', 'MY_FUNCTION');
+      .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION);
 
     if (error) {
       throw error;

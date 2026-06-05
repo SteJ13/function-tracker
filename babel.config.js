@@ -13,6 +13,7 @@ module.exports = {
           '@context': './src/context',
           '@services': './src/services',
           '@navigation': './src/navigation',
+          '@globalConstant': './src/globalConstant',
         },
       },
     ],

@@ -19,18 +19,19 @@ import { loadFunctionsCache } from './cache';
 import useFunctionActions from './useFunctionActions';
 import { useNetwork } from '@context/NetworkContext';
 import { getFunctionStatus } from '@utils/statusHelper';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const PAGE_SIZE = 10;
 const FUNCTION_TABS = [
-  { key: 'MY_FUNCTION', label: 'My Functions' },
-  { key: 'INVITATION', label: 'Invitations' },
+  { key: FUNCTION_TYPES.MY_FUNCTION, label: 'My Functions' },
+  { key: FUNCTION_TYPES.INVITATION, label: 'Invitations' },
 ];
 
 export default function FunctionListScreen({ navigation, route }) {
   const [data, setData] = useState([]);
   const [refreshKey, setRefreshKey] = useState('functions');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [activeTab, setActiveTab] = useState('MY_FUNCTION');
+  const [activeTab, setActiveTab] = useState(FUNCTION_TYPES.MY_FUNCTION);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const { isOnline } = useNetwork();
@@ -408,8 +409,8 @@ export default function FunctionListScreen({ navigation, route }) {
     [hasActiveFilters, handleFilterClear, isOnline, data.length]
   );
 
-  const fabLabel = activeTab === 'MY_FUNCTION' ? 'Add Function' : 'Add Invitation';
-  const functionTypeParam = activeTab === 'MY_FUNCTION' ? 'MY_FUNCTION' : 'INVITATION';
+  const fabLabel = activeTab === FUNCTION_TYPES.MY_FUNCTION ? 'Add Function' : 'Add Invitation';
+  const functionTypeParam = activeTab === FUNCTION_TYPES.MY_FUNCTION ? FUNCTION_TYPES.MY_FUNCTION : FUNCTION_TYPES.INVITATION;
 
   return (
     <View style={styles.container}>

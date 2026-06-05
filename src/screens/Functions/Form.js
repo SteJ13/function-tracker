@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
@@ -15,6 +16,7 @@ import { getFunctionById } from './api';
 import useFunctionActions from './useFunctionActions';
 import { getCategories } from '@screens/FunctionCategories/api';
 import { useNetwork } from '@context/NetworkContext';
+import { FUNCTION_TYPES } from '@globalConstant';
 
 const STATUS_OPTIONS = [
   { value: 'upcoming', label: 'Upcoming' },
@@ -31,7 +33,7 @@ const REMINDER_OPTIONS = [
 
 export default function FunctionFormScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
-  const initialFunctionType = route?.params?.function_type || 'MY_FUNCTION';
+  const initialFunctionType = route?.params?.function_type || FUNCTION_TYPES.MY_FUNCTION;
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const { isOnline } = useNetwork();
@@ -156,12 +158,32 @@ export default function FunctionFormScreen({ navigation, route }) {
           Toast.show({ type: 'success', text1: 'Function added' });
 
           // Auto-navigate to add contribution if this is an INVITATION
-          if (values.function_type === 'INVITATION' && createdFunction?.id) {
-            navigation.navigate('AddContribution', {
-              functionId: createdFunction.id,
-              functionTitle: values.title.trim(),
-              source: 'INVITATION',
-            });
+          if (values.function_type === FUNCTION_TYPES.INVITATION && createdFunction?.id) {
+            Alert.alert(
+              'Invitation Saved',
+              'Would you like to add your contribution now?',
+              [
+                {
+                  text: 'Later',
+                  onPress: () => {
+                    navigation.replace('FunctionDetail', {
+                      functionId: createdFunction.id,
+                    });
+                  },
+                },
+                {
+                  text: 'Add Contribution',
+                  onPress: () => {
+                    navigation.navigate('AddContribution', {
+                      functionId: createdFunction.id,
+                      functionTitle: values.title.trim(),
+                      source: FUNCTION_TYPES.INVITATION,
+                      locationId: values.location_id,
+                    });
+                  },
+                },
+              ]
+            );
           } else {
             navigation.goBack();
           }
@@ -200,7 +222,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         </View>
       )}
 
-      {!functionId && initialFunctionType === 'INVITATION' && (
+      {!functionId && initialFunctionType === FUNCTION_TYPES.INVITATION && (
         <View style={styles.helperSection}>
           <Text style={styles.helperTitle}>👤 Recording an Invitation</Text>
           <Text style={styles.helperText}>
@@ -209,7 +231,7 @@ export default function FunctionFormScreen({ navigation, route }) {
         </View>
       )}
 
-      {!functionId && initialFunctionType === 'MY_FUNCTION' && (
+      {!functionId && initialFunctionType === FUNCTION_TYPES.MY_FUNCTION && (
         <View style={styles.helperSection}>
           <Text style={styles.helperTitle}>📋 Creating Your Function</Text>
           <Text style={styles.helperText}>

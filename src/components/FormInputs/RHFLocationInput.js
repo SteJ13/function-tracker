@@ -163,12 +163,12 @@ export default function RHFLocationInput({
 
   const handleConfirmAddLocation = useCallback(async () => {
     if (!newLocationName.trim()) return;
-    
+
     setAddingLocation(true);
     try {
       const { data, error } = await supabase
         .from('locations')
-        .insert({ 
+        .insert({
           name: newLocationName.trim(),
           tamil_name: newLocationTamilName.trim() || null
         })
@@ -260,7 +260,16 @@ export default function RHFLocationInput({
         }, [value]);
 
         const hasResults = suggestions.length > 0;
-        const showAddOption = inputText.trim().length > 0 && !hasResults && !loading && isOnline;
+        const locationAlreadyExists = allLocations.some(
+          loc => loc.name.toLowerCase() === inputText.trim().toLowerCase()
+        );
+
+        const showAddOption =
+          inputText.trim().length > 0 &&
+          !hasResults &&
+          !loading &&
+          isOnline &&
+          !locationAlreadyExists;
 
         return (
           <View style={styles.container}>
@@ -351,15 +360,15 @@ const AddLocationModal = ({ visible, onClose, name, tamilName, onNameChange, onT
     animationType="fade"
     onRequestClose={onClose}
   >
-    <TouchableOpacity 
-      style={styles.modalOverlay} 
-      activeOpacity={1} 
+    <TouchableOpacity
+      style={styles.modalOverlay}
+      activeOpacity={1}
       onPress={onClose}
     >
       <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Add New Location</Text>
-          
+
           <Text style={styles.modalLabel}>Name (English)</Text>
           <TextInput
             style={styles.modalInput}
@@ -368,7 +377,7 @@ const AddLocationModal = ({ visible, onClose, name, tamilName, onNameChange, onT
             placeholder="Enter location name"
             autoFocus
           />
-          
+
           <Text style={styles.modalLabel}>தமிழ் பெயர் (Tamil Name)</Text>
           <TextInput
             style={styles.modalInput}
@@ -376,18 +385,18 @@ const AddLocationModal = ({ visible, onClose, name, tamilName, onNameChange, onT
             onChangeText={onTamilNameChange}
             placeholder="Enter Tamil name"
           />
-          
+
           <View style={styles.modalActions}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]} 
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
               onPress={onClose}
               disabled={adding}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.addButton]} 
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.addButton]}
               onPress={onAdd}
               disabled={adding || !name.trim()}
             >
@@ -405,7 +414,7 @@ const AddLocationModal = ({ visible, onClose, name, tamilName, onNameChange, onT
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
-    zIndex: 1,
+    zIndex: 100,
   },
   label: {
     marginBottom: 6,

@@ -17,7 +17,6 @@ async function ensureOnline() {
 export async function getFunctions({
   page = 1,
   limit = PAGE_SIZE,
-  status,
   filters = {},
 }) {
   await ensureOnline();
@@ -38,11 +37,6 @@ export async function getFunctions({
     .order('function_date', { ascending: true })
     .range(from, to);
 
-  // Handle legacy status parameter for backward compatibility
-  if (status && status !== 'all') {
-    query = query.eq('status', status);
-  }
-
   // Apply filters
   if (filters.category_id) {
     query = query.eq('category_id', filters.category_id);
@@ -50,10 +44,6 @@ export async function getFunctions({
 
   if (filters.location_id) {
     query = query.eq('location_id', filters.location_id);
-  }
-
-  if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
-    query = query.in('status', filters.status);
   }
 
   if (filters.function_type) {
