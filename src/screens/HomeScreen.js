@@ -99,11 +99,17 @@ export default function HomeScreen({ navigation }) {
       onPress: () => navigation.navigate('Calendar'),
     },
     {
-      id: 'ledger',
+      id: 'PendingReturns',
       label: 'Pending Returns',
       subtitle: `₹${pendingTotal.toLocaleString('en-IN')}`,
       icon: '💰',
-      onPress: () => navigation.navigate('Ledger'),
+      onPress: () => navigation.navigate('PendingReturns'),
+    },
+    {
+      id: 'given-contributions',
+      label: 'Given Contributions',
+      icon: '💸',
+      onPress: () => navigation.navigate('GivenContributions'),
     },
     {
       id: 'locations',

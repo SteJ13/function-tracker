@@ -21,6 +21,7 @@ import NetInfo from '@react-native-community/netinfo';
  * @param {Function} onDataLoaded - Called with new items: (newItems, meta) => void
  * @param {Function} onError - Called on error: (error, page) => void
  * @param {number} pageSize - Items per page (default: 10)
+ * @param {number|string} reloadKey - Changes trigger a page 1 reload without remounting
  * @param {Function} onRefresh - Optional callback after refresh completes
  * @param {React.Component} emptyComponent - Component to show when data is empty
  * @param {Object} contentContainerStyle - Additional container styles
@@ -34,6 +35,7 @@ export default function PaginatedList({
   onDataLoaded,
   onError,
   pageSize = 10,
+  reloadKey,
   onRefresh,
   emptyComponent: EmptyComponent,
   contentContainerStyle,
@@ -91,7 +93,7 @@ export default function PaginatedList({
     };
 
     loadInitial();
-  }, [pageSize, fetchData, onDataLoaded, onError, isOffline]);
+  }, [pageSize, fetchData, onDataLoaded, onError, isOffline, reloadKey]);
 
   // Handle refresh (pull-to-refresh)
   const handleRefresh = useCallback(async () => {

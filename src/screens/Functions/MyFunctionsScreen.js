@@ -87,26 +87,26 @@ export default function MyFunctionsScreen({ navigation }) {
         return count;
     }, [advancedFilters]);
 
-    // Set header options with filter button
-    useEffect(() => {
-        const filterCount = getActiveFilterCount();
-        navigation.setOptions({
-            title: 'My Functions',
-            headerRight: () => (
-                <TouchableOpacity
-                    style={styles.headerButton}
-                    onPress={() => setShowFilterPanel(true)}
-                >
-                    <Text style={styles.headerButtonText}>⚙️</Text>
-                    {filterCount > 0 && (
-                        <View style={styles.filterBadge}>
-                            <Text style={styles.filterBadgeText}>{filterCount}</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            ),
-        });
-    }, [navigation, getActiveFilterCount]);
+    // // Set header options with filter button
+    // useEffect(() => {
+    //     const filterCount = getActiveFilterCount();
+    //     navigation.setOptions({
+    //         title: 'My Functions',
+    //         headerRight: () => (
+    //             <TouchableOpacity
+    //                 style={styles.headerButton}
+    //                 onPress={() => setShowFilterPanel(true)}
+    //             >
+    //                 <Text style={styles.headerButtonText}>⚙️</Text>
+    //                 {filterCount > 0 && (
+    //                     <View style={styles.filterBadge}>
+    //                         <Text style={styles.filterBadgeText}>{filterCount}</Text>
+    //                     </View>
+    //                 )}
+    //             </TouchableOpacity>
+    //         ),
+    //     });
+    // }, [navigation, getActiveFilterCount]);
 
     // Refresh list when screen is focused
     useFocusEffect(

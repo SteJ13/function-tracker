@@ -27,6 +27,7 @@ export async function getContributions({ functionId, page = 1, limit = PAGE_SIZE
     .select('*, locations:place_id(id, name, tamil_name)', { count: 'exact' })
     .eq('function_id', functionId)
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(from, to);
 
   if (error) {
@@ -127,7 +128,7 @@ export async function markContributionReturned(contributionId) {
   return data;
 }
 
-export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQuery = '' }) {
+export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQuery = '', filters = {} }) {
   await ensureOnline();
 
   const from = (page - 1) * limit;
@@ -143,15 +144,31 @@ export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQue
     .eq('returned', false)
     .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('id', { ascending: false })
 
-  if (searchQuery && searchQuery.trim()) {
-    const q = `%${searchQuery.trim()}%`;
-    query = query.or(
-      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q},locations.name.ilike.${q},locations.tamil_name.ilike.${q}`
+  if (filters.contributionType) {
+    query = query.eq(
+      'contribution_type',
+      filters.contributionType
     );
   }
 
+  if (filters.locationId) {
+    query = query.eq(
+      'place_id',
+      filters.locationId
+    );
+  }
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = `%${searchQuery.trim()}%`;
+    console.log('SEARCH QUERY FIXED');
+    query = query.or(
+      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q}`
+    );
+  }
+
+  query = query.range(from, to);
   const { data, count, error } = await query;
 
   if (error) {
@@ -176,6 +193,89 @@ export async function getPendingReturns({ page = 1, limit = PAGE_SIZE, searchQue
   };
 }
 
+export async function getGivenContributions({
+  page = 1,
+  limit = PAGE_SIZE,
+  searchQuery = '',
+  filters = {},
+}) {
+  await ensureOnline();
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  let query = supabase
+    .from('contributions')
+    .select(
+      `
+      id,
+      person_name,
+      family_name,
+      spouse_name,
+      amount,
+      contribution_type,
+      created_at,
+      locations:place_id(id,name,tamil_name),
+      functions!inner(
+        id,
+        title,
+        function_date,
+        function_type
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('direction', 'I_GAVE')
+    .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
+
+  if (filters.contributionType) {
+    query = query.eq(
+      'contribution_type',
+      filters.contributionType
+    );
+  }
+
+  if (filters.locationId) {
+    query = query.eq(
+      'place_id',
+      filters.locationId
+    );
+  }
+
+  if (searchQuery?.trim()) {
+    const q = `%${searchQuery.trim()}%`;
+
+    query = query.or(
+      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q}`
+    );
+  }
+
+  const { data, count, error } =
+    await query.range(from, to);
+
+  if (error) {
+    throw error;
+  }
+
+  const transformedData =
+    (data || []).map(item => ({
+      ...item,
+      location: item.locations || null,
+      locations: undefined,
+    }));
+
+  return {
+    data: transformedData,
+    meta: {
+      page,
+      total: count || 0,
+      hasMore: (count || 0) > to + 1,
+    },
+  };
+}
+
 export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQuery = '' }) {
   await ensureOnline();
 
@@ -191,6 +291,7 @@ export async function searchReturnHistory({ page = 1, limit = PAGE_SIZE, searchQ
     .eq('returned', true)
     .eq('direction', 'GIVEN_TO_ME')
     .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
+    .order('id', { ascending: false })
     .order('returned_at', { ascending: false });
 
   // Add search filters if query provided
@@ -241,6 +342,7 @@ export async function getSuggestions({ personName, familyName, placeId }) {
     .eq('returned', false)
     .eq('place_id', placeId)
     .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
+    .order('id', { ascending: false })
     .ilike('person_name', `%${personName}%`)
     .order('created_at', { ascending: false })
     .limit(5);
@@ -261,3 +363,82 @@ export async function getSuggestions({ personName, familyName, placeId }) {
     locations: undefined,
   }));
 }
+
+export const getPendingReturnsSummary = async () => {
+  const { data, error } = await supabase
+    .from('contributions')
+    .select(`
+      amount,
+      contribution_type,
+      functions!inner(function_type)
+    `)
+    .eq('direction', 'GIVEN_TO_ME')
+    .eq('returned', false)
+    .eq('functions.function_type', FUNCTION_TYPES.MY_FUNCTION)
+    .order('id', { ascending: false })
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).reduce(
+    (summary, item) => {
+      const amount = parseFloat(item.amount) || 0;
+
+      if ((item.contribution_type || '').toLowerCase() === 'gold') {
+        summary.gold += amount;
+      } else {
+        summary.cash += amount;
+      }
+
+      return summary;
+    },
+    {
+      cash: 0,
+      gold: 0,
+      count: data?.length || 0,
+    }
+  );
+};
+
+export const getGivenContributionsSummary = async () => {
+  const { data, error } = await supabase
+    .from('contributions')
+    .select(`
+      amount,
+      contribution_type,
+      functions!inner(function_type)
+    `)
+    .eq('direction', 'I_GAVE')
+    .eq(
+      'functions.function_type',
+      FUNCTION_TYPES.MY_FUNCTION
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).reduce(
+    (summary, item) => {
+      const amount =
+        parseFloat(item.amount) || 0;
+
+      if (
+        (item.contribution_type || '')
+          .toUpperCase() === 'GOLD'
+      ) {
+        summary.gold += amount;
+      } else {
+        summary.cash += amount;
+      }
+
+      return summary;
+    },
+    {
+      cash: 0,
+      gold: 0,
+      count: data?.length || 0,
+    }
+  );
+};

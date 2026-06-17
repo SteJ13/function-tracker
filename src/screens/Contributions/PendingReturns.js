@@ -1,24 +1,74 @@
-import React, { useCallback, useMemo, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import Toast from 'react-native-toast-message';
 import PaginatedList from '@components/PaginatedList';
-import { getPendingReturns, markContributionReturned } from './api';
+import SearchInput from '@components/SearchInput';
+import { getPendingReturns, getPendingReturnsSummary, markContributionReturned } from './api';
+import FilterSheet from '@components/Filters/FilterSheet';
 
 const PAGE_SIZE = 10;
 
-export default function LedgerScreen({ navigation }) {
-  const [refreshKey, setRefreshKey] = useState('ledger');
+export default function PendingReturns({ navigation }) {
+  const [refreshKey, setRefreshKey] = useState('PendingReturns');
   const [data, setData] = useState([]);
   const [processingId, setProcessingId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const searchTimer = useRef(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [totalCashGold, setTotalCashGold] = useState({ cash: 0, gold: 0, count: 0 });
+  const [filters, setFilters] = useState({});
+
+  console.log('totalCashGold: ', totalCashGold);
+
+  useEffect(() => {
+    getSumary();
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Pending Returns',
+      headerRight: () => (
+
+        <FilterSheet
+          filters={[
+            {
+              type: 'contributionType',
+              title: 'Contribution Type',
+              options: [
+                { label: 'Cash', value: 'CASH' },
+                { label: 'Gold', value: 'GOLD' },
+              ],
+            },
+
+            {
+              type: 'location',
+              title: 'Location',
+            },
+          ]}
+          onApply={handleFilterApply}
+        />
+      ),
+    });
+  }, [navigation]);
+
+  const handleFilterApply = useCallback((appliedFilters) => {
+    setFilters(appliedFilters);
+    setRefreshKey(`PendingReturns-${Date.now()}`);
+  }, []);
+
+  const getSumary = useCallback(async () => {
+    try {
+      const summary = await getPendingReturnsSummary();
+      setTotalCashGold(summary);
+    } catch (error) {
+      console.error('Error fetching pending returns summary:', error);
+    }
+  }, []);
 
   const fetchData = useCallback(async ({ page, limit }) => {
     const response = await getPendingReturns({
       page,
       limit,
-      searchQuery: debouncedQuery,
+      searchQuery: searchTerm,
+      filters
     });
     return {
       data: response.data,
@@ -28,7 +78,8 @@ export default function LedgerScreen({ navigation }) {
         hasMore: response.meta.hasMore,
       },
     };
-  }, [debouncedQuery]);
+  }, [searchTerm, filters]);
+
   const handleDataLoaded = useCallback((newItems, meta) => {
     if (meta.page === 1) {
       setData(newItems);
@@ -68,7 +119,7 @@ export default function LedgerScreen({ navigation }) {
               });
               // Refresh list to reflect latest DB state
               setData(prev => prev.filter(i => i.id !== item.id));
-              setRefreshKey(`ledger-${debouncedQuery}-${Date.now()}`);
+              setRefreshKey(`PendingReturns-${searchTerm}-${Date.now()}`);
             } catch (error) {
               console.error('[Mark Returned] Error:', error);
               Toast.show({
@@ -83,52 +134,28 @@ export default function LedgerScreen({ navigation }) {
         },
       ]
     );
-  }, [processingId, debouncedQuery]);
+  }, [processingId, searchTerm]);
 
-  const handleSearchChange = useCallback((text) => {
-    setSearchQuery(text);
-
-    if (searchTimer.current) {
-      clearTimeout(searchTimer.current);
-    }
-
-    searchTimer.current = setTimeout(() => {
-      setDebouncedQuery(text);
-      setData([]);
-      setRefreshKey(`ledger-${text}-${Date.now()}`);
-    }, 400);
+  const handleSearch = useCallback((text) => {
+    setSearchTerm(text);
   }, []);
 
-  const totals = useMemo(() => {
-    return data.reduce(
-      (acc, item) => {
-        const amount = parseFloat(item.amount) || 0;
-        if (item.contribution_type === 'gold') {
-          acc.gold += amount;
-        } else {
-          acc.cash += amount;
-        }
-        return acc;
-      },
-      { cash: 0, gold: 0 }
-    );
-  }, [data]);
 
   const renderItem = useCallback(({ item }) => {
     const locationName = item.location?.name || 'Unknown location';
     const locationTamil = item.location?.tamil_name || '';
     const locationDisplay = locationTamil ? `${locationName} · ${locationTamil}` : locationName;
-    
+
     const amountDisplay = item.contribution_type === 'gold'
       ? `${item.amount} grams`
       : `₹${parseFloat(item.amount).toLocaleString('en-IN')}`;
 
     const functionDate = item.functions?.function_date
-      ? new Date(item.functions.function_date).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        })
+      ? new Date(item.functions.function_date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
       : '';
 
     const familyDisplay = item.family_name ? ` (${item.family_name})` : '';
@@ -179,21 +206,19 @@ export default function LedgerScreen({ navigation }) {
       <Text style={styles.emptyIcon}>🎉</Text>
       <Text style={styles.emptyText}>No pending returns 🎉</Text>
       <Text style={styles.emptySubtext}>
-        {searchQuery ? 'No matches found' : 'All contributions have been returned!'}
+        {searchTerm ? 'No matches found' : 'All contributions have been returned!'}
       </Text>
     </View>
-  ), [searchQuery]);
+  ), [searchTerm]);
 
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
         <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             placeholder="Search by name or location..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={handleSearchChange}
+            debounceMs={300}
+            onSearch={handleSearch}
           />
         </View>
         <View style={styles.totalContainer}>
@@ -201,12 +226,17 @@ export default function LedgerScreen({ navigation }) {
           <View style={styles.totalRow}>
             <View style={styles.totalColumn}>
               <Text style={styles.totalValueLabel}>Cash</Text>
-              <Text style={styles.totalAmountCash}>₹{totals.cash.toLocaleString('en-IN')}</Text>
+              <Text style={styles.totalAmountCash}>₹{totalCashGold.cash.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalDivider} />
             <View style={styles.totalColumn}>
               <Text style={styles.totalValueLabel}>Gold</Text>
-              <Text style={styles.totalAmountGold}>{totals.gold} g</Text>
+              <Text style={styles.totalAmountGold}>{totalCashGold.gold} g</Text>
+            </View>
+            <View style={styles.totalDivider} />
+            <View style={styles.totalColumn}>
+              <Text style={styles.totalValueLabel}>Count</Text>
+              <Text style={styles.totalAmountGold}>{totalCashGold.count}</Text>
             </View>
           </View>
         </View>
@@ -250,16 +280,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
-  },
-  searchInput: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   listContainer: {
     flex: 1,

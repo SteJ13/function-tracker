@@ -385,8 +385,6 @@ export default function AddContributionScreen({ navigation, route }) {
 			contentContainerStyle={styles.content}
 			keyboardShouldPersistTaps="handled"
 		>
-			<Text style={styles.title}>Add Contribution</Text>
-
 			<View style={styles.formCard}>
 				{source !== FUNCTION_TYPES.INVITATION && (
 					<RHFLocationInput

@@ -1,23 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
 import PaginatedList from '@components/PaginatedList';
+import SearchInput from '@components/SearchInput';
+import { supabase } from '@services/supabaseClient';
+import { formatContributionAmount } from '@utils/contributionFormatters';
 import { getContributions, deleteContribution } from './api';
+import styles from './ListScreen.styles';
 
 const PAGE_SIZE = 10;
 
 export default function ContributionsListScreen({ navigation, route }) {
   const functionId = route?.params?.functionId;
   const [data, setData] = useState([]);
-  const [refreshKey, setRefreshKey] = useState('contributions');
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!functionId) {
@@ -26,14 +30,79 @@ export default function ContributionsListScreen({ navigation, route }) {
     }
   }, [functionId, navigation]);
 
+  const reloadList = useCallback(() => {
+    setData([]);
+    setReloadVersion(version => version + 1);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      setData([]);
-      setRefreshKey(`contributions-${Date.now()}`);
-    }, [])
+      reloadList();
+    }, [reloadList])
   );
 
+  const handleSearch = useCallback((text) => {
+    setData([]);
+    setSearchTerm(text);
+  }, []);
+
   const fetchData = useCallback(async ({ page, limit }) => {
+    const query = searchTerm.trim();
+
+    if (query) {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      const searchPattern = `%${query}%`;
+      const { data: matchingLocations, error: locationError } = await supabase
+        .from('locations')
+        .select('id')
+        .ilike('tamil_name', searchPattern);
+
+      if (locationError) {
+        throw locationError;
+      }
+
+      const locationIds = (matchingLocations || []).map(location => location.id);
+      const filters = [
+        `person_name.ilike.${searchPattern}`,
+        `family_name.ilike.${searchPattern}`,
+      ];
+
+      if (locationIds.length > 0) {
+        filters.push(`place_id.in.(${locationIds.join(',')})`);
+      }
+
+      const { data: searchData, count, error } = await supabase
+        .from('contributions')
+        .select('*, locations:place_id(id, name, tamil_name)', { count: 'exact' })
+        .eq('function_id', functionId)
+        .or(filters.join(','))
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        throw error;
+      }
+
+      const transformedData = searchData?.map(item => ({
+        ...item,
+        location: item.locations || null,
+        locations: undefined,
+      })) || [];
+
+      const total = count || 0;
+
+      return {
+        data: transformedData,
+        meta: {
+          page,
+          total,
+          hasMore: total > to + 1,
+        },
+      };
+    }
+
     const response = await getContributions({ functionId, page, limit });
 
     return {
@@ -44,7 +113,7 @@ export default function ContributionsListScreen({ navigation, route }) {
         hasMore: response.meta.hasMore,
       },
     };
-  }, [functionId]);
+  }, [functionId, searchTerm, reloadVersion]);
 
   const handleDataLoaded = useCallback((newItems, meta) => {
     if (meta.page === 1) {
@@ -75,8 +144,7 @@ export default function ContributionsListScreen({ navigation, route }) {
             try {
               await deleteContribution(item.id);
               Toast.show({ type: 'success', text1: 'Contribution deleted' });
-              setData([]);
-              setRefreshKey(`contributions-${Date.now()}`);
+              reloadList();
             } catch (error) {
               Toast.show({
                 type: 'error',
@@ -88,15 +156,16 @@ export default function ContributionsListScreen({ navigation, route }) {
         },
       ]
     );
-  }, []);
+  }, [reloadList]);
 
   const renderItem = useCallback(({ item }) => {
     const placeName = item.location?.name || 'Unknown place';
     const placeTamil = item.location?.tamil_name || '';
-    const placeDisplay = placeTamil ? `${placeName} · ${placeTamil}` : placeName;
-    const amountDisplay = item.contribution_type === 'gold'
-      ? `${item.amount} grams`
-      : `₹${parseFloat(item.amount).toLocaleString('en-IN')}`;
+    const placeDisplay = placeTamil ? `${placeName} Â· ${placeTamil}` : placeName;
+    const amountDisplay = formatContributionAmount(
+      item.contribution_type,
+      item.amount
+    );
 
     return (
       <View style={styles.card}>
@@ -132,15 +201,28 @@ export default function ContributionsListScreen({ navigation, route }) {
   const EmptyComponent = useMemo(() => () => (
     <View style={styles.empty}>
       <Text style={styles.emptyIcon}>📦</Text>
-      <Text style={styles.emptyText}>No contributions yet</Text>
-      <Text style={styles.emptySubtext}>Tap + to add your first contribution</Text>
+      <Text style={styles.emptyText}>
+        {searchTerm ? 'No matching contributions' : 'No contributions yet'}
+      </Text>
+      <Text style={styles.emptySubtext}>
+        {searchTerm
+          ? 'Try a different name or Tamil location'
+          : 'Tap + to add your first contribution'}
+      </Text>
     </View>
-  ), []);
+  ), [searchTerm]);
 
   return (
     <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <SearchInput
+          placeholder="Search person, family, Tamil location..."
+          debounceMs={300}
+          onSearch={handleSearch}
+        />
+      </View>
+
       <PaginatedList
-        key={refreshKey}
         data={data}
         renderItem={renderItem}
         keyExtractor={item => item.id}
@@ -161,128 +243,3 @@ export default function ContributionsListScreen({ navigation, route }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F6F8FA',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  personName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  amountText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1976D2',
-  },
-  placeText: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 6,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  returned: {
-    backgroundColor: '#4CAF50',
-  },
-  notReturned: {
-    backgroundColor: '#BDBDBD',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  editButton: {
-    backgroundColor: '#1976D2',
-  },
-  deleteButton: {
-    backgroundColor: '#E53935',
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  empty: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyIcon: {
-    fontSize: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 6,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1976D2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  fabText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 26,
-  },
-});

@@ -23,7 +23,7 @@ import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
 import ContributionsListScreen from '@screens/Contributions/ListScreen';
 import ContributionsAddScreen from '@screens/Contributions/AddScreen';
 import ContributionsEditScreen from '@screens/Contributions/EditScreen';
-import LedgerScreen from '@screens/Contributions/LedgerScreen';
+import PendingReturns from '@screens/Contributions/PendingReturns';
 import ReturnHistoryScreen from '@screens/Contributions/ReturnHistoryScreen';
 import LocationsListScreen from '@screens/Locations/ListScreen';
 import LocationAddEditScreen from '@screens/Locations/AddEditScreen';
@@ -35,6 +35,7 @@ import CalendarScreen from '@screens/Calendar';
 import OpenMenusScreen from '@screens/openMenus/OpenMenusScreen';
 import AreaCalculatorScreen from '@screens/openMenus/AreaCalculatorScreen';
 import HiddenVideoScreen from '@screens/openMenus/HiddenVideoScreen';
+import GivenContributionsScreen from '@screens/Contributions/GivenContributionsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -172,9 +173,14 @@ function AppStack() {
         options={{ title: 'Calendar' }}
       />
       <Stack.Screen
-        name="Ledger"
-        component={LedgerScreen}
+        name="PendingReturns"
+        component={PendingReturns}
         options={{ title: 'Pending Returns' }}
+      />
+      <Stack.Screen
+        name="GivenContributions"
+        component={GivenContributionsScreen}
+        options={{ title: 'Given Contributions' }}
       />
       <Stack.Screen
         name="ReturnHistory"

@@ -176,9 +176,9 @@ Global table.
 
 ---
 
-# Ledger Concept
+# PendingReturns Concept
 
-Ledger tracks pending returns.
+PendingReturns tracks pending returns.
 
 Meaning:
 
@@ -289,7 +289,7 @@ Below is the directory structure of the React Native codebase under `src/`:
   * `screens/` - Application screens grouped by feature/domain.
     * `Auth/` - Authentication screens (login, signup, forgot/reset password).
     * `Calendar/` - Calendar view of functions.
-    * `Contributions/` - Contribution management (`AddScreen`, `EditScreen`, `LedgerScreen` for pending returns, `ReturnHistoryScreen`, `ListScreen`).
+    * `Contributions/` - Contribution management (`AddScreen`, `EditScreen`, `PendingReturns` for pending returns, `ReturnHistoryScreen`, `ListScreen`).
     * `FunctionCategories/` - Function category management.
     * `Functions/` - Function/Event management (`Form`, `FunctionDetailScreen`, `InvitationsScreen`, `MyFunctionsScreen`).
     * `Locations/` - Location management and search.
