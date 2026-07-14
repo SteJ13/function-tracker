@@ -61,7 +61,7 @@ export default function ReturnHistoryScreen({ navigation }) {
   const handleError = useCallback((error) => {
     Toast.show({
       type: 'error',
-      text1: 'Failed to load return history',
+      text1: 'Failed to load contribution history',
       text2: error?.message,
     });
   }, []);
@@ -79,18 +79,18 @@ export default function ReturnHistoryScreen({ navigation }) {
 
     const functionDate = item.functions?.function_date
       ? new Date(item.functions.function_date).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
       : '';
 
     const returnedDate = item.returned_at
       ? new Date(item.returned_at).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
       : '';
 
     const spouseDisplay = item.spouse_name ? ` + ${item.spouse_name}` : '';
@@ -133,7 +133,7 @@ export default function ReturnHistoryScreen({ navigation }) {
   const EmptyComponent = useMemo(() => () => (
     <View style={styles.empty}>
       <Text style={styles.emptyIcon}>✓</Text>
-      <Text style={styles.emptyText}>No return history yet</Text>
+      <Text style={styles.emptyText}>No contribution history yet</Text>
       <Text style={styles.emptySubtext}>
         {searchQuery ? 'No matches found' : 'Returned contributions will appear here'}
       </Text>

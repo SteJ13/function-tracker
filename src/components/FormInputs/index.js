@@ -4,6 +4,6 @@ import DatePicker from './DatePicker';
 import TimePicker from './TimePicker';
 import StatusSelector from './StatusSelector';
 import RHFLocationInput from './RHFLocationInput';
-import RHFFamilyNameInput from './RHFFamilyNameInput';
+import RHFSearchableInput from './RHFSearchableInput';
 
-export { Input, Select, DatePicker, TimePicker, StatusSelector, RHFLocationInput, RHFFamilyNameInput };
+export { Input, Select, DatePicker, TimePicker, StatusSelector, RHFLocationInput, RHFSearchableInput };

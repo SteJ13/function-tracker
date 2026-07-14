@@ -3,38 +3,58 @@ import { supabase } from './supabaseClient';
 /**
  * Search family names from historical contributions
  */
-export const searchFamilyNames = async (query) => {
-    try {
-        if (!query || query.trim().length === 0) {
-            return [];
-        }
+export const searchContributionField = async (field, searchText) => {
+    const SEARCHABLE_CONTRIBUTION_FIELDS = ['family_name', 'person_name', 'spouse_name'];
 
+    if (!SEARCHABLE_CONTRIBUTION_FIELDS.includes(field)) {
+        return [];
+    }
+
+    const trimmedText = searchText?.trim();
+    if (!trimmedText || trimmedText.length < 2) {
+        return [];
+    }
+
+    try {
         const { data, error } = await supabase
             .from('contributions')
-            .select('family_name')
-            .not('family_name', 'is', null)
-            .ilike('family_name', `%${query.trim()}%`)
-            .limit(10);
+            .select(field)
+            .not(field, 'is', null)
+            .neq(field, '')
+            .ilike(field, `%${trimmedText}%`)
+            .limit(20);
 
         if (error) {
-            console.error('[searchFamilyNames]', error);
+            console.error('[searchContributionField]', error);
             return [];
         }
 
-        const uniqueNames = [
-            ...new Set(
-                (data || [])
-                    .map(item => item.family_name?.trim())
-                    .filter(Boolean)
-            ),
-        ];
+        const uniqueValues = [];
+        const seenValues = new Set();
 
-        return uniqueNames;
+        (data || []).forEach((item) => {
+            const value = item[field]?.trim();
+            if (!value) {
+                return;
+            }
+
+            const key = value.toLowerCase();
+            if (seenValues.has(key)) {
+                return;
+            }
+
+            seenValues.add(key);
+            uniqueValues.push(value);
+        });
+
+        return uniqueValues;
     } catch (err) {
-        console.error('[searchFamilyNames Exception]', err);
+        console.error('[searchContributionField Exception]', err);
         return [];
     }
 };
+
+export const searchFamilyNames = async (query) => searchContributionField('family_name', query);
 
 /**
  * Get all unique family names

@@ -10,7 +10,7 @@ import {
 import { useForm } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 
-import { Input, RHFFamilyNameInput, RHFLocationInput } from '@components/FormInputs';
+import { Input, RHFSearchableInput, RHFLocationInput } from '@components/FormInputs';
 import { useAuth } from '@context/AuthContext';
 import { useLanguage } from '@context/LanguageContext';
 import { supabase } from '@services/supabaseClient';
@@ -129,7 +129,10 @@ export default function AddContributionScreen({ navigation, route }) {
 					contribution_type: values.contribution_type,
 					amount: parseFloat(values.amount) || 0,
 					notes: values.notes?.trim() || null,
-					direction: 'GIVEN_TO_ME',
+					direction:
+						source === FUNCTION_TYPES.INVITATION
+							? 'I_GAVE'
+							: 'GIVEN_TO_ME',
 					returned: false,
 					user_id: user.id,
 				};
@@ -398,21 +401,22 @@ export default function AddContributionScreen({ navigation, route }) {
 				)}
 
 
-				<RHFFamilyNameInput
-					name="family_name"
-					label="Family Name"
-					control={control}
-					placeholder="Search or enter family name"
-				/>
+<RHFSearchableInput
+                    name="family_name"
+                    searchField="family_name"
+                    label="Family Name"
+                    control={control}
+                    placeholder="Search or enter family name"
+                />
 
-				<Input
-					name="person_name"
-					label="Person Name"
-					control={control}
-					required
-					rules={{ required: 'Person name is required' }}
-					placeholder="Required"
-					voice={false}
+                <RHFSearchableInput
+                    name="person_name"
+                    searchField="person_name"
+                    label="Person Name"
+                    control={control}
+                    required
+                    rules={{ required: 'Person name is required' }}
+                    placeholder="Search or enter person name"
 				/>
 
 				{matchedContribution && (
@@ -512,32 +516,30 @@ export default function AddContributionScreen({ navigation, route }) {
 					</View>
 				) : null}
 
-				<Input
-					name="spouse_name"
-					label="Spouse Name"
-					control={control}
-					placeholder="Optional"
-					voice={false}
-				/>
+					<RHFSearchableInput
+						name="spouse_name"
+						searchField="spouse_name"
+						label="Spouse Name"
+						control={control}
+						placeholder="Optional"					/>
 
-				<Text style={styles.fieldLabel}>Contribution Type</Text>
-				<View style={styles.typeToggle}>
-					{CONTRIBUTION_TYPES.map(option => {
-						const isActive = contributionType === option.value;
-						return (
-							<TouchableOpacity
-								key={option.value}
-								style={[styles.typeOption, isActive && styles.typeOptionActive]}
-								onPress={() => setValue('contribution_type', option.value, { shouldValidate: true })}
-							>
-								<Text style={[styles.typeOptionText, isActive && styles.typeOptionTextActive]}>
-									{option.label}
-								</Text>
-							</TouchableOpacity>
-						);
-					})}
-				</View>
-
+					<Text style={styles.fieldLabel}>Contribution Type</Text>
+					<View style={styles.typeToggle}>
+						{CONTRIBUTION_TYPES.map(option => {
+							const isActive = contributionType === option.value;
+							return (
+								<TouchableOpacity
+									key={option.value}
+									style={[styles.typeOption, isActive && styles.typeOptionActive]}
+									onPress={() => setValue('contribution_type', option.value, { shouldValidate: true })}
+								>
+									<Text style={[styles.typeOptionText, isActive && styles.typeOptionTextActive]}>
+										{option.label}
+									</Text>
+								</TouchableOpacity>
+							);
+						})}
+					</View>
 				<Input
 					name="amount"
 					label="Amount"

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,35 +8,52 @@ import {
 } from 'react-native';
 import { Controller } from 'react-hook-form';
 
-import { searchFamilyNames } from '@services/commonApis';
+import { searchContributionField } from '@services/commonApis';
 
-export default function RHFFamilyNameInput({
+export default function RHFSearchableInput({
     name,
+    searchField,
     control,
     label,
-    placeholder = 'Enter family name',
+    placeholder = 'Enter text',
     rules = {},
     required = false,
 }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-
     const debounceRef = useRef(null);
 
-    const handleSearch = useCallback(async (text) => {
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-        }
-
-        debounceRef.current = setTimeout(async () => {
-            if (!text || text.trim().length < 2) {
-                setSuggestions([]);
-                return;
+    const handleSearch = useCallback(
+        async (text) => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
             }
 
-            const results = await searchFamilyNames(text);
-            setSuggestions(results);
-        }, 300);
+            debounceRef.current = setTimeout(async () => {
+                const trimmedText = text?.trim();
+
+                if (!trimmedText || trimmedText.length < 2) {
+                    setSuggestions([]);
+                    return;
+                }
+
+                try {
+                    const results = await searchContributionField(searchField, text);
+                    setSuggestions(results);
+                } catch (error) {
+                    setSuggestions([]);
+                }
+            }, 300);
+        },
+        [searchField]
+    );
+
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
     }, []);
 
     return (
@@ -68,14 +85,12 @@ export default function RHFFamilyNameInput({
                     />
 
                     {error && (
-                        <Text style={styles.error}>
-                            {error.message}
-                        </Text>
+                        <Text style={styles.error}>{error.message}</Text>
                     )}
 
                     {showSuggestions && suggestions.length > 0 && (
                         <View style={styles.dropdown}>
-                            {suggestions.map(item => (
+                            {suggestions.map((item) => (
                                 <TouchableOpacity
                                     key={item}
                                     style={styles.option}
@@ -84,9 +99,7 @@ export default function RHFFamilyNameInput({
                                         setShowSuggestions(false);
                                     }}
                                 >
-                                    <Text style={styles.optionText}>
-                                        {item}
-                                    </Text>
+                                    <Text style={styles.optionText}>{item}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -136,17 +149,13 @@ const styles = StyleSheet.create({
         top: 70,
         left: 0,
         right: 0,
-
         backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: '#DDD',
         borderRadius: 8,
-
         maxHeight: 200,
-
         zIndex: 9999,
         elevation: 20,
-
         shadowColor: '#000',
         shadowOffset: {
             width: 0,

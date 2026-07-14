@@ -23,7 +23,7 @@ import FunctionDetailScreen from '@screens/Functions/FunctionDetailScreen';
 import ContributionsListScreen from '@screens/Contributions/ListScreen';
 import ContributionsAddScreen from '@screens/Contributions/AddScreen';
 import ContributionsEditScreen from '@screens/Contributions/EditScreen';
-import PendingReturns from '@screens/Contributions/PendingReturns';
+import ReceivedContributionsScreen from '@screens/Contributions/ReceivedContributions';
 import ReturnHistoryScreen from '@screens/Contributions/ReturnHistoryScreen';
 import LocationsListScreen from '@screens/Locations/ListScreen';
 import LocationAddEditScreen from '@screens/Locations/AddEditScreen';
@@ -36,6 +36,8 @@ import OpenMenusScreen from '@screens/openMenus/OpenMenusScreen';
 import AreaCalculatorScreen from '@screens/openMenus/AreaCalculatorScreen';
 import HiddenVideoScreen from '@screens/openMenus/HiddenVideoScreen';
 import GivenContributionsScreen from '@screens/Contributions/GivenContributionsScreen';
+import PersonLedgerScreen from '@screens/Contributions/PersonLedgerScreen';
+import RelationshipLedgerScreen from '@screens/Contributions/RelationshipLedgerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -173,9 +175,9 @@ function AppStack() {
         options={{ title: 'Calendar' }}
       />
       <Stack.Screen
-        name="PendingReturns"
-        component={PendingReturns}
-        options={{ title: 'Pending Returns' }}
+        name="ReceivedContributions"
+        component={ReceivedContributionsScreen}
+        options={{ title: 'Received Contributions' }}
       />
       <Stack.Screen
         name="GivenContributions"
@@ -185,12 +187,26 @@ function AppStack() {
       <Stack.Screen
         name="ReturnHistory"
         component={ReturnHistoryScreen}
-        options={{ title: 'Return History' }}
+        options={{ title: 'Contribution History' }}
       />
       <Stack.Screen
         name="LocationsList"
         component={LocationsListScreen}
         options={{ title: 'Manage Locations' }}
+      />
+      <Stack.Screen
+        name="PersonLedger"
+        component={PersonLedgerScreen}
+        options={{
+          title: 'Person Ledger',
+        }}
+      />
+      <Stack.Screen
+        name="RelationshipLedger"
+        component={RelationshipLedgerScreen}
+        options={{
+          title: 'Relationships',
+        }}
       />
       <Stack.Screen
         name="LocationAddEdit"

@@ -4,6 +4,7 @@ import {
     Modal,
     View,
     Text,
+    TextInput,
     Pressable,
     TouchableOpacity,
     ScrollView,
@@ -133,6 +134,23 @@ const FilterSheet = ({
                                 updateValue('locationId', location.id);
                                 updateValue('locationName', location.name);
                             }}
+                        />
+                    </View>
+                );
+
+            case 'familyName':
+                return (
+                    <View key={filter.type} style={styles.section}>
+                        <Text style={styles.sectionTitle}>
+                            {filter.title}
+                        </Text>
+
+                        <TextInput
+                            style={styles.textInput}
+                            value={values[filter.type] || ''}
+                            onChangeText={text => updateValue(filter.type, text)}
+                            placeholder={filter.placeholder || 'Search'}
+                            placeholderTextColor="#999"
                         />
                     </View>
                 );

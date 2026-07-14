@@ -176,9 +176,9 @@ Global table.
 
 ---
 
-# PendingReturns Concept
+# ReceivedContributions Concept
 
-PendingReturns tracks pending returns.
+ReceivedContributions tracks contributions received from others.
 
 Meaning:
 
@@ -189,7 +189,7 @@ I should return similar contribution.
 
 ---
 
-## Pending Returns
+## Received Contributions
 
 Shows:
 
@@ -203,7 +203,7 @@ Not invitation contributions.
 
 ---
 
-## Return History
+## Contribution History
 
 Shows:
 
@@ -257,7 +257,7 @@ Menus:
 * Invitations
 * Function Categories
 * Calendar
-* Pending Returns
+* Received Contributions
 * Locations
 * Notifications
 * Open Menus (utility tools)
@@ -289,7 +289,7 @@ Below is the directory structure of the React Native codebase under `src/`:
   * `screens/` - Application screens grouped by feature/domain.
     * `Auth/` - Authentication screens (login, signup, forgot/reset password).
     * `Calendar/` - Calendar view of functions.
-    * `Contributions/` - Contribution management (`AddScreen`, `EditScreen`, `PendingReturns` for pending returns, `ReturnHistoryScreen`, `ListScreen`).
+    * `Contributions/` - Contribution management (`AddScreen`, `EditScreen`, `ReceivedContributions` for received contributions, `ReturnHistoryScreen`, `ListScreen`).
     * `FunctionCategories/` - Function category management.
     * `Functions/` - Function/Event management (`Form`, `FunctionDetailScreen`, `InvitationsScreen`, `MyFunctionsScreen`).
     * `Locations/` - Location management and search.

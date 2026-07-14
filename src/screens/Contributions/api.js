@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '@services/supabaseClient';
 import * as db from '@services/db';
-import { FUNCTION_TYPES } from '@globalConstant';
+import { CONTRIBUTION_TYPES, FUNCTION_TYPES } from '@globalConstant';
 
 const PAGE_SIZE = 10;
 
@@ -442,3 +442,165 @@ export const getGivenContributionsSummary = async () => {
     }
   );
 };
+
+export async function getRelationshipLedger({ searchQuery = '', filters = {} } = {}) {
+  await ensureOnline();
+
+  let query = supabase
+    .from('contributions')
+    .select(`
+      person_name,
+      family_name,
+      spouse_name,
+      place_id,
+      amount,
+      contribution_type,
+      direction,
+      locations:place_id(
+        id,
+        name,
+        tamil_name
+      )
+    `);
+
+  if (filters.locationId) {
+    query = query.eq('place_id', filters.locationId);
+  }
+
+  if (filters.familyName?.trim()) {
+    query = query.ilike('family_name', `%${filters.familyName.trim()}%`);
+  }
+
+  const trimmedQuery = searchQuery?.trim();
+  if (trimmedQuery) {
+    const q = `%${trimmedQuery}%`;
+    query = query.or(
+      `person_name.ilike.${q},family_name.ilike.${q},spouse_name.ilike.${q},locations.name.ilike.${q},locations.tamil_name.ilike.${q}`
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  const ledgerMap = {};
+
+  (data || []).forEach(item => {
+    const key = [
+      item.person_name,
+      item.family_name || '',
+      item.spouse_name || '',
+      item.place_id || '',
+    ].join('|');
+
+    if (!ledgerMap[key]) {
+      ledgerMap[key] = {
+        person_name: item.person_name,
+        family_name: item.family_name,
+        spouse_name: item.spouse_name,
+        place_id: item.place_id,
+        location: item.locations || null,
+
+        receivedCash: 0,
+        givenCash: 0,
+        receivedGold: 0,
+        givenGold: 0,
+      };
+    }
+
+    const amount = parseFloat(item.amount) || 0;
+
+    const contributionType =
+      (item.contribution_type || '').toUpperCase();
+
+    const isGold = contributionType === 'GOLD';
+    const isReceived = item.direction === 'GIVEN_TO_ME';
+
+    if (isGold) {
+      if (isReceived) {
+        ledgerMap[key].receivedGold += amount;
+      } else {
+        ledgerMap[key].givenGold += amount;
+      }
+    } else {
+      if (isReceived) {
+        ledgerMap[key].receivedCash += amount;
+      } else {
+        ledgerMap[key].givenCash += amount;
+      }
+    }
+  });
+
+  return Object.values(ledgerMap)
+    .map(item => ({
+      person_name: item.person_name,
+      family_name: item.family_name,
+      spouse_name: item.spouse_name,
+      place_id: item.place_id,
+      location: item.location,
+
+      cashBalance:
+        item.givenCash - item.receivedCash,
+
+      goldBalance:
+        item.givenGold - item.receivedGold,
+    }))
+    .sort((a, b) => {
+      const totalA =
+        Math.abs(a.cashBalance) +
+        Math.abs(a.goldBalance);
+
+      const totalB =
+        Math.abs(b.cashBalance) +
+        Math.abs(b.goldBalance);
+
+      return totalB - totalA;
+    });
+}
+export async function getPersonLedger({
+  personName,
+  familyName,
+  placeId,
+}) {
+  await ensureOnline();
+
+  let query = supabase
+    .from('contributions')
+    .select(`
+      id,
+      person_name,
+      family_name,
+      contribution_type,
+      amount,
+      direction,
+      created_at,
+      functions (
+        id,
+        title,
+        function_date,
+        function_type
+      )
+    `)
+    .eq('person_name', personName);
+
+  if (familyName) {
+    query = query.eq('family_name', familyName);
+  }
+
+  if (placeId) {
+    query = query.eq('place_id', placeId);
+  }
+
+  query = query
+    .order('created_at', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}

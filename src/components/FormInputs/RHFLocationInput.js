@@ -135,15 +135,22 @@ export default function RHFLocationInput({
     [searchLocations]
   );
 
+  const formatLocationDisplay = useCallback((location) => {
+    if (!location) return '';
+    return location.tamil_name
+      ? `${location.name} · ${location.tamil_name}`
+      : location.name;
+  }, []);
+
   const handleSelectLocation = useCallback(
     (location, onChange) => {
-      setInputText(location.name);
+      setInputText(formatLocationDisplay(location));
       onChange(location.id);
       setShowSuggestions(false);
       setSuggestions([]);
       Keyboard.dismiss();
     },
-    []
+    [formatLocationDisplay]
   );
 
   const handleAddNewLocation = useCallback(
@@ -212,10 +219,15 @@ export default function RHFLocationInput({
       return;
     }
 
+    const formatDisplay = (location) =>
+      location?.tamil_name
+        ? `${location.name} · ${location.tamil_name}`
+        : location.name;
+
     // Try to find in cached locations first
     const cachedLocation = allLocations.find(loc => loc.id === locationId);
     if (cachedLocation) {
-      setInputText(cachedLocation.name);
+      setInputText(formatDisplay(cachedLocation));
       return;
     }
 
@@ -237,7 +249,7 @@ export default function RHFLocationInput({
       }
 
       if (data) {
-        setInputText(data.name);
+        setInputText(formatDisplay(data));
       }
     } catch (err) {
       console.error('Load location exception:', err);
@@ -322,7 +334,7 @@ export default function RHFLocationInput({
                         style={styles.suggestionItem}
                         onPress={() => handleSelectLocation(location, onChange)}
                       >
-                        <Text style={styles.suggestionText}>{location.name}</Text>
+                        <Text style={styles.suggestionText}>{location.name}({location.tamil_name})</Text>
                       </TouchableOpacity>
                     ))}
                   </>

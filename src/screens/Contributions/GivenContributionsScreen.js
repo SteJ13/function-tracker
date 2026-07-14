@@ -156,7 +156,7 @@ export default function GivenContributionsScreen({ navigation }) {
     const EmptyComponent = useMemo(() => () => (
         <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🎉</Text>
-            <Text style={styles.emptyText}>No pending returns 🎉</Text>
+            <Text style={styles.emptyText}>No received contributions 🎉</Text>
             <Text style={styles.emptySubtext}>
                 {searchTerm ? 'No matches found' : 'All contributions have been returned!'}
             </Text>

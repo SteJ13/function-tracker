@@ -198,7 +198,7 @@ Used for search and display.
 
 # Return Tracking
 
-## Pending Returns
+## Received Contributions
 
 Shows contributions where:
 
@@ -214,7 +214,7 @@ I have not yet returned it.
 
 ---
 
-## Return History
+## Contribution History
 
 Shows contributions where:
 
@@ -301,7 +301,7 @@ Menus:
 * Invitations
 * Categories
 * Calendar
-* Pending Returns
+* Received Contributions
 * Locations
 * Notifications
 * Open Menus

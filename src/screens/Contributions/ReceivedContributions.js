@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import Toast from 'react-native-toast-message';
 import PaginatedList from '@components/PaginatedList';
 import SearchInput from '@components/SearchInput';
-import { getPendingReturns, getPendingReturnsSummary, markContributionReturned } from './api';
+import { getPendingReturns, getPendingReturnsSummary, getRelationshipLedger, markContributionReturned } from './api';
 import FilterSheet from '@components/Filters/FilterSheet';
 
 const PAGE_SIZE = 10;
 
-export default function PendingReturns({ navigation }) {
-  const [refreshKey, setRefreshKey] = useState('PendingReturns');
+export default function ReceivedContributions({ navigation }) {
+  const [refreshKey, setRefreshKey] = useState('ReceivedContributions');
   const [data, setData] = useState([]);
   const [processingId, setProcessingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,7 +24,7 @@ export default function PendingReturns({ navigation }) {
 
   useEffect(() => {
     navigation.setOptions({
-      title: 'Pending Returns',
+      title: 'Received Contributions',
       headerRight: () => (
 
         <FilterSheet
@@ -51,15 +51,21 @@ export default function PendingReturns({ navigation }) {
 
   const handleFilterApply = useCallback((appliedFilters) => {
     setFilters(appliedFilters);
-    setRefreshKey(`PendingReturns-${Date.now()}`);
+    setRefreshKey(`ReceivedContributions-${Date.now()}`);
   }, []);
 
   const getSumary = useCallback(async () => {
     try {
+      const result = await getRelationshipLedger();
+
+      console.log(
+        JSON.stringify(result, null, 2)
+      );
+
       const summary = await getPendingReturnsSummary();
       setTotalCashGold(summary);
     } catch (error) {
-      console.error('Error fetching pending returns summary:', error);
+      console.error('Error fetching received contributions summary:', error);
     }
   }, []);
 
@@ -91,7 +97,7 @@ export default function PendingReturns({ navigation }) {
   const handleError = useCallback((error) => {
     Toast.show({
       type: 'error',
-      text1: 'Failed to load pending returns',
+      text1: 'Failed to load received contributions',
       text2: error?.message,
     });
   }, []);
@@ -119,7 +125,7 @@ export default function PendingReturns({ navigation }) {
               });
               // Refresh list to reflect latest DB state
               setData(prev => prev.filter(i => i.id !== item.id));
-              setRefreshKey(`PendingReturns-${searchTerm}-${Date.now()}`);
+              setRefreshKey(`ReceivedContributions-${searchTerm}-${Date.now()}`);
             } catch (error) {
               console.error('[Mark Returned] Error:', error);
               Toast.show({
@@ -204,7 +210,7 @@ export default function PendingReturns({ navigation }) {
   const EmptyComponent = useMemo(() => () => (
     <View style={styles.empty}>
       <Text style={styles.emptyIcon}>🎉</Text>
-      <Text style={styles.emptyText}>No pending returns 🎉</Text>
+      <Text style={styles.emptyText}>No received contributions 🎉</Text>
       <Text style={styles.emptySubtext}>
         {searchTerm ? 'No matches found' : 'All contributions have been returned!'}
       </Text>
